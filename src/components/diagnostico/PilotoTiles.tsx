@@ -386,7 +386,9 @@ export default function PilotoTiles() {
 
       {/* ------------------------------------------------ mapa */}
       <div className="space-y-3">
-        <div className="relative overflow-hidden rounded-md border" style={{ height: 460 }}>
+        {/* `isolate`: los z-index de Leaflet (400/1000) quedan encerrados acá y no
+            tapan los menús desplegables ni los diálogos del panel (z-50). */}
+        <div className="relative isolate overflow-hidden rounded-md border" style={{ height: 460 }}>
           <MapContainer center={[24.8, -107.4]} zoom={8} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"

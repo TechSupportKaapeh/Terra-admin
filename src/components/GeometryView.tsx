@@ -82,7 +82,11 @@ export default function GeometryView({ shapes, height = 256 }: Props) {
   }
 
   return (
-    <div className="rounded-md overflow-hidden border" style={{ height }}>
+    // `isolate` (isolation: isolate) encierra los z-index de Leaflet —panes en 400,
+    // controles en 1000— en este contenedor. Sin eso compiten en el contexto raíz
+    // con los diálogos (z-50) y el mapa se pinta ENCIMA del formulario "Crear
+    // parcela" que se abre con un rancho seleccionado.
+    <div className="isolate rounded-md overflow-hidden border" style={{ height }}>
       {/* Sin `key` en MapContainer a propósito: React reutiliza la instancia y solo
           difenecia los Polygon, evitando el error "Map container is already initialized". */}
       <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>

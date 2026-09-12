@@ -108,7 +108,10 @@ export default function GeometryInput({ value, onChange }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md overflow-hidden border h-48">
+      {/* `isolate`: encierra los z-index de Leaflet (400/1000) en el contenedor. Hoy
+          este mapa vive dentro de un DialogContent, que ya es su propio contexto, pero
+          si se usara fuera de un diálogo taparía cualquier cosa con z-50. */}
+      <div className="isolate rounded-md overflow-hidden border h-48">
         <MapContainer center={defaultCenter} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {value.length > 2 && (
