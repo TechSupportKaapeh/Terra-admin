@@ -65,6 +65,7 @@ function Bitacora({ jobId }: { jobId: string }) {
   }
 
   const { job, eventos } = detalle
+  const separadores = intentosNuevos(eventos)
   const aviso = alerta(job, ahora)
   const dura = duracionDe(job, ahora)
 
@@ -109,13 +110,30 @@ function Bitacora({ jobId }: { jobId: string }) {
         ) : (
           <ol className="space-y-3">
             {eventos.map((e, i) => (
-              <Linea key={e.id} evento={e} nuevoIntento={i > 0 && e.attempt !== eventos[i - 1].attempt} />
+              <Linea key={e.id} evento={e} nuevoIntento={separadores[i]} />
             ))}
           </ol>
         )}
       </div>
     </>
   )
+}
+
+// `inicio` y `fin` son del job, no de un intento. El worker escribe `fin` desde el
+// request que recibe el error final, y en ese request Inngest numera desde 1 aunque
+// el step haya fallado cuatro veces (primera corrida real, 2026-09-12): sin esto
+// aparecía un "Intento 1" después del intento 4.
+const DEL_JOB = new Set(['inicio', 'fin'])
+
+/** Para cada línea, si abre un intento nuevo. Las del job no abren ni cortan. */
+function intentosNuevos(eventos: EventoProceso[]): boolean[] {
+  let anterior: number | null = null
+  return eventos.map(e => {
+    if (DEL_JOB.has(e.stage)) return false
+    const nuevo = anterior !== null && e.attempt !== anterior
+    anterior = e.attempt
+    return nuevo
+  })
 }
 
 function Linea({ evento: e, nuevoIntento }: { evento: EventoProceso; nuevoIntento: boolean }) {

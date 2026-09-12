@@ -91,7 +91,12 @@ export default function TenantMembersDialog({ tenantId, tenantName, users, open,
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
             <Label className="text-xs">Agregar usuario</Label>
-            <Select value={addUserId} onValueChange={v => setAddUserId(v ?? '')}>
+            {/* `items`: sin él, Base UI muestra el value elegido, que es el id del usuario. */}
+            <Select
+              value={addUserId || null}
+              onValueChange={v => setAddUserId(v ?? '')}
+              items={Object.fromEntries(candidates.map(u => [u.id, `${u.name} ${u.lastName} — ${u.email}`]))}
+            >
               <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona un usuario" /></SelectTrigger>
               <SelectContent>
                 {candidates.length === 0

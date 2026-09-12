@@ -287,7 +287,12 @@ export default function PilotoTiles() {
       <div className="space-y-4">
         <div className="space-y-1">
           <Label className="text-xs">Tenant</Label>
-          <Select value={tenantId} onValueChange={v => { if (v) void elegirTenant(v) }}>
+          {/* `items`: sin él, Base UI muestra el value elegido, que es el id del tenant. */}
+          <Select
+            value={tenantId || null}
+            onValueChange={v => { if (v) void elegirTenant(v) }}
+            items={Object.fromEntries(tenants.map(t => [t.id, t.name]))}
+          >
             <SelectTrigger className="w-full"><SelectValue placeholder="Elegí un tenant" /></SelectTrigger>
             <SelectContent>
               {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}

@@ -183,6 +183,10 @@ export default function RanchosPage() {
   const selectedRanchoObj = ranchos.find(r => r.id === selectedRancho)
   const selectedRanchoName = selectedRanchoObj?.name
 
+  // Sin `items`, el SelectValue de Base UI muestra el value crudo: el UUID.
+  const itemsTenant = Object.fromEntries(tenants.map(t => [t.id, t.name]))
+  const itemsRancho = Object.fromEntries(ranchos.map(r => [r.id, r.name]))
+
   // Geometría a dibujar: el rancho seleccionado (azul) + sus parcelas (verde).
   const mapShapes: Shape[] = []
   if (selectedRanchoObj) mapShapes.push({ coordinates: selectedRanchoObj.coordinates, color: '#2563eb', label: selectedRanchoObj.name })
@@ -195,8 +199,9 @@ export default function RanchosPage() {
       <div className="space-y-1 max-w-xs">
         <Label>Tenant</Label>
         {/* `v ?? ''`: Base UI emite null al limpiar; '' es nuestro sentinel de "sin
-            tenant" (useState('')), que oculta las pestañas dependientes. */}
-        <Select value={tenantId} onValueChange={v => setTenantId(v ?? '')}>
+            tenant" (useState('')), que oculta las pestañas dependientes. Hacia Base UI
+            va como null, que es su "nada elegido" y muestra el placeholder. */}
+        <Select value={tenantId || null} onValueChange={v => setTenantId(v ?? '')} items={itemsTenant}>
           <SelectTrigger><SelectValue placeholder="Selecciona un tenant" /></SelectTrigger>
           <SelectContent>
             {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -291,7 +296,7 @@ export default function RanchosPage() {
             <div className="flex items-center gap-3">
               <div className="space-y-1 flex-1 max-w-xs">
                 <Label>Rancho</Label>
-                <Select value={selectedRancho} onValueChange={v => setSelectedRancho(v ?? '')}>
+                <Select value={selectedRancho || null} onValueChange={v => setSelectedRancho(v ?? '')} items={itemsRancho}>
                   <SelectTrigger><SelectValue placeholder="Selecciona un rancho" /></SelectTrigger>
                   <SelectContent>
                     {ranchos.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}

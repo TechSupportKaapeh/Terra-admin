@@ -35,7 +35,10 @@ recuperar**: mientras Inngest reintenta, el estado sigue en `procesando` (E.4 de
 | `warning` | borde ámbar, "reintento" | Falló, pero Inngest lo va a reintentar. Ver el intento siguiente. |
 | `error` | borde rojo, "error" | Falló y no se recupera. |
 
-Cuando cambia el intento, la bitácora lo separa con "Intento N". Las etiquetas grises
+Cuando cambia el intento, la bitácora lo separa con "Intento N". Las líneas
+`inicio` y `fin` son del job, no de un intento, y no abren separador. El worker
+escribe `fin` desde un request en el que Inngest vuelve a numerar desde 1: en la
+primera corrida real (2026-09-12) aparecía un "Intento 1" después del intento 4. Las etiquetas grises
 son los datos de la etapa: el rango de fechas (`2026-03-12 → 2026-04-11`), cuántas
 imágenes encontró, cuántas fechas escribió, cuántos MB bajó, cuánto tardó.
 

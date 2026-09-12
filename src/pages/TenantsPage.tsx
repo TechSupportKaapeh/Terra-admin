@@ -9,6 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import TenantMembersDialog from '@/components/TenantMembersDialog'
 
+// Para el SelectValue de Base UI: sin `items` muestra el código ("es") en vez del nombre.
+const IDIOMAS = { es: 'Español', en: 'English' }
+
 export default function TenantsPage() {
   const [data, setData] = useState<PagedResult<Tenant> | null>(null)
   const [users, setUsers] = useState<User[]>([])
@@ -84,7 +87,7 @@ export default function TenantsPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Idioma</Label>
-                  <Select value={form.defaultLanguage} onValueChange={v => setForm(f => ({ ...f, defaultLanguage: v ?? f.defaultLanguage }))}>
+                  <Select value={form.defaultLanguage} onValueChange={v => setForm(f => ({ ...f, defaultLanguage: v ?? f.defaultLanguage }))} items={IDIOMAS}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="es">Español</SelectItem>
@@ -99,7 +102,12 @@ export default function TenantsPage() {
               </div>
               <div className="space-y-1">
                 <Label>Admin inicial</Label>
-                <Select value={form.adminUserId} onValueChange={v => setForm(f => ({ ...f, adminUserId: v ?? f.adminUserId }))}>
+                {/* `items`: sin él, Base UI muestra el value elegido, que es el id del usuario. */}
+                <Select
+                  value={form.adminUserId || null}
+                  onValueChange={v => setForm(f => ({ ...f, adminUserId: v ?? f.adminUserId }))}
+                  items={Object.fromEntries(users.map(u => [u.id, `${u.name} ${u.lastName} — ${u.email}`]))}
+                >
                   <SelectTrigger><SelectValue placeholder="Selecciona un usuario" /></SelectTrigger>
                   <SelectContent>
                     {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name} {u.lastName} — {u.email}</SelectItem>)}
