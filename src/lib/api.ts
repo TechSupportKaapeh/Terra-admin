@@ -189,3 +189,55 @@ export interface Diagnostico {
 export interface LayerSummary { id: string; tenantId: string; parcelaId: string | null; ranchoId: string | null; product: string; storageKey: string; acquiredTs: string; source: string; createdAt: string }
 /** `tiles[0]` es la plantilla de TiTiler SIN rescale, colormap_name ni token: los agrega el front. */
 export interface LayerDetail { layerId: string; indice: string; fecha: string; tiles: string[]; bounds: number[]; minzoom: number; maxzoom: number }
+
+// Procesos del worker — TerraStaff
+//
+// `/api/admin/procesos` lo protege la política TerraStaff de Geocore
+// (AdminProcesosController). Lista los `processing_jobs` con su última línea de
+// bitácora, y el detalle trae la bitácora entera (`processing_job_events`), que
+// escribe el worker desde adentro de cada step.
+
+/** Una línea de la bitácora. `level`: info · warning (falló, se reintenta) · error (no se recupera). */
+export interface EventoProceso {
+  id: number
+  createdAt: string
+  /** Desde 1. Con reintentos, la misma etapa aparece una vez por intento. */
+  attempt: number
+  /** Id del step de Inngest (`compute-time-series-7`), o `inicio` / `fin` / `reintento`. */
+  stage: string
+  level: string
+  message: string
+  /** Datos crudos de la etapa: `desde`, `hasta`, `imagenes`, `escritas`, `megas`, `ms`, `error`… */
+  detail: Record<string, unknown> | null
+}
+export interface Proceso {
+  id: string
+  tenantId: string
+  tenantNombre: string | null
+  ranchoId: string | null
+  ranchoNombre: string | null
+  parcelaId: string | null
+  parcelaNombre: string | null
+  /** Contrato con Geocore: ver `TIPOS` en `lib/procesos.ts`. */
+  requestType: string
+  status: string
+  progress: number
+  errorMessage: string | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  /** El intento más alto que dejó rastro; null si el worker todavía no escribió nada. */
+  intentos: number | null
+  ultimoEvento: EventoProceso | null
+}
+export interface DetalleProceso { job: Proceso; eventos: EventoProceso[] }
+export interface FiltroProcesos { tenantId?: string; ranchoId?: string; parcelaId?: string; status?: string; limit?: number }
+
+export const getProcesos = (filtro: FiltroProcesos = {}) => {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(filtro)) if (v !== undefined && v !== '') q.set(k, String(v))
+  const s = q.toString()
+  return request<Proceso[]>(`/api/admin/procesos${s ? `?${s}` : ''}`)
+}
+
+export const getProceso = (id: string) => request<DetalleProceso>(`/api/admin/procesos/${encodeURIComponent(id)}`)

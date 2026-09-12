@@ -6,9 +6,10 @@ import UsersPage from '@/pages/UsersPage'
 import TenantsPage from '@/pages/TenantsPage'
 import RanchosPage from '@/pages/RanchosPage'
 import DiagnosticoPage from '@/pages/DiagnosticoPage'
+import ProcesosPage from '@/pages/ProcesosPage'
 import { Button } from '@/components/ui/button'
 
-type Tab = 'usuarios' | 'tenants' | 'ranchos' | 'diagnóstico'
+type Tab = 'usuarios' | 'tenants' | 'ranchos' | 'procesos' | 'diagnóstico'
 
 // [B-2] Gate COSMÉTICO. Decodifica el payload del JWT SIN verificar la firma, solo
 // para ocultar la UI de admin a no-staff. La autorización real la hace Geocore, que
@@ -60,10 +61,12 @@ export default function App() {
   // Diagnóstico: sólo TerraAdmin, no cualquier TerraStaff. Como el resto de este
   // gate, ocultar la pestaña es cosmético [B-2]: lo que protege el dato es la
   // política `TerraAdmin` de GET /api/admin/diagnostico en Geocore (DECISIONS #19).
+  // Procesos sí es para todo TerraStaff (política `TerraStaff` de /api/admin/procesos):
+  // soporte es justamente quien tiene que ver por qué no aparece el mapa de una parcela.
   const esAdminGlobal = globalRole === 'TerraAdmin'
   const tabs: Tab[] = esAdminGlobal
-    ? ['usuarios', 'tenants', 'ranchos', 'diagnóstico']
-    : ['usuarios', 'tenants', 'ranchos']
+    ? ['usuarios', 'tenants', 'ranchos', 'procesos', 'diagnóstico']
+    : ['usuarios', 'tenants', 'ranchos', 'procesos']
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -92,6 +95,7 @@ export default function App() {
         {tab === 'usuarios' && <UsersPage />}
         {tab === 'tenants' && <TenantsPage />}
         {tab === 'ranchos' && <RanchosPage />}
+        {tab === 'procesos' && <ProcesosPage />}
         {tab === 'diagnóstico' && esAdminGlobal && <DiagnosticoPage />}
       </main>
     </div>

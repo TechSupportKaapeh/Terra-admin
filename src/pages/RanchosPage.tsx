@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { getTenants, getRanchos, createRancho, getParcelas, createParcela, deactivateRancho, activateRancho, deactivateParcela, activateParcela, describeError, type Tenant, type Rancho, type Parcela } from '@/lib/api'
+import { getTenants, getRanchos, createRancho, getParcelas, createParcela, deactivateRancho, activateRancho, deactivateParcela, activateParcela, describeError, type Tenant, type Rancho, type Parcela, type Proceso } from '@/lib/api'
+import { useProcesos } from '@/lib/useProcesos'
+import EstadoJob from '@/components/procesos/EstadoJob'
+import BitacoraSheet from '@/components/procesos/BitacoraJob'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -72,6 +75,18 @@ export default function RanchosPage() {
   const [error, setError] = useState('')
   const [pageError, setPageError] = useState('')
 
+  // El último procesamiento de cada rancho y parcela del tenant: una sola consulta
+  // por tenant, que se refresca sola mientras haya alguno en curso. La lista viene
+  // de más nuevo a más viejo, así que el primero que aparece de cada uno es el último.
+  const [jobAbierto, setJobAbierto] = useState<string | null>(null)
+  const { procesos, recargar: recargarProcesos } = useProcesos(tenantId ? { tenantId, limit: 200 } : null)
+  const ultimoPorParcela = new Map<string, Proceso>()
+  const ultimoPorRancho = new Map<string, Proceso>()
+  for (const j of procesos ?? []) {
+    if (j.parcelaId) { if (!ultimoPorParcela.has(j.parcelaId)) ultimoPorParcela.set(j.parcelaId, j) }
+    else if (j.ranchoId && !ultimoPorRancho.has(j.ranchoId)) ultimoPorRancho.set(j.ranchoId, j)
+  }
+
   useEffect(() => { getTenants(1, 200).then(r => setTenants(r.items)).catch(() => {}) }, [])
   useEffect(() => { if (tenantId) loadRanchos() }, [tenantId])
   useEffect(() => { if (selectedRancho) loadParcelas() }, [selectedRancho])
@@ -138,6 +153,7 @@ export default function RanchosPage() {
       setRanchoOpen(false)
       setRanchoName(''); setRanchoCoords([]); setRanchoFuente('manual'); setRanchoMeta(emptyMeta)
       loadRanchos()
+      recargarProcesos()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error')
     } finally { setLoading(false) }
@@ -158,6 +174,7 @@ export default function RanchosPage() {
       setParcelaOpen(false)
       setParcelaName(''); setParcelaCoords([]); setParcelaFuente('manual'); setParcelaMeta(emptyMeta)
       loadParcelas()
+      recargarProcesos()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error')
     } finally { setLoading(false) }
@@ -231,6 +248,7 @@ export default function RanchosPage() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Fuente</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Procesamiento</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -244,6 +262,7 @@ export default function RanchosPage() {
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell>{r.fuenteGeom}</TableCell>
                     <TableCell><Badge variant={r.isActive ? 'default' : 'secondary'}>{r.isActive ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                    <TableCell><CeldaProceso proceso={ultimoPorRancho.get(r.id)} onAbrir={setJobAbierto} /></TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -313,6 +332,7 @@ export default function RanchosPage() {
                   <TableHead>Área (ha)</TableHead>
                   <TableHead>Municipio</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Procesamiento</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -325,6 +345,7 @@ export default function RanchosPage() {
                         con `(p as any)` porque el tipo lo omitía aunque el backend lo enviaba). */}
                     <TableCell className="text-muted-foreground">{p.municipio ?? '—'}</TableCell>
                     <TableCell><Badge variant={p.isActive ? 'default' : 'secondary'}>{p.isActive ? 'Activa' : 'Inactiva'}</Badge></TableCell>
+                    <TableCell><CeldaProceso proceso={ultimoPorParcela.get(p.id)} onAbrir={setJobAbierto} /></TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => toggleParcela(p)}>
                         {p.isActive ? 'Desactivar' : 'Activar'}
@@ -346,6 +367,31 @@ export default function RanchosPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <BitacoraSheet jobId={jobAbierto} onClose={() => setJobAbierto(null)} />
     </div>
+  )
+}
+
+/**
+ * El estado del último procesamiento de un rancho o una parcela. Abre su bitácora;
+ * `stopPropagation` para que en la tabla de ranchos no seleccione además la fila.
+ * "—" = no hay job: la entidad se creó antes de que existiera el seguimiento, o
+ * quedó fuera de los 200 procesos más recientes del tenant.
+ */
+function CeldaProceso({ proceso, onAbrir }: { proceso?: Proceso; onAbrir: (id: string) => void }) {
+  if (!proceso) return <span className="text-xs text-muted-foreground">—</span>
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-muted"
+      title={proceso.ultimoEvento?.message ?? 'Ver bitácora'}
+      onClick={e => { e.stopPropagation(); onAbrir(proceso.id) }}
+    >
+      <EstadoJob status={proceso.status} />
+      {proceso.status !== 'completed' && (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">{proceso.progress}%</span>
+      )}
+    </button>
   )
 }
