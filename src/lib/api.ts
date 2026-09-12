@@ -1,0 +1,161 @@
+import { supabase } from './supabase'
+
+const GEOCORE_URL = import.meta.env.VITE_GEOCORE_URL as string
+
+// [B-1] Sesión expirada / sin token. Cerrar sesión dispara onAuthStateChange en
+// App.tsx → redirección al login, en vez de mandar "Authorization: Bearer undefined"
+// y tragarse el 401 en silencio.
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('Tu sesión expiró. Inicia sesión de nuevo.')
+    this.name = 'SessionExpiredError'
+  }
+}
+
+async function endExpiredSession(): Promise<never> {
+  await supabase.auth.signOut()
+  throw new SessionExpiredError()
+}
+
+// [B-1] Mensaje legible para mostrar en la UI. Devuelve null para SessionExpiredError:
+// en ese caso ya hay una redirección al login en curso, no tiene sentido mostrar un
+// error en una página que está por desmontarse. Para el resto (500, 403, red, ngrok
+// caído) devuelve el mensaje en vez de dejar la tabla vacía sin feedback.
+export function describeError(err: unknown): string | null {
+  if (err instanceof SessionExpiredError) return null
+  return err instanceof Error ? err.message : 'Error desconocido'
+}
+
+async function getHeaders(tenantId?: string): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) await endExpiredSession()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  }
+  if (tenantId) headers['X-Tenant-ID'] = tenantId
+  if (import.meta.env.DEV) headers['ngrok-skip-browser-warning'] = 'true'
+  return headers
+}
+
+async function request<T>(path: string, options: RequestInit = {}, tenantId?: string): Promise<T> {
+  const headers = await getHeaders(tenantId)
+  const res = await fetch(`${GEOCORE_URL}${path}`, { ...options, headers })
+  if (res.status === 401) await endExpiredSession()
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.message ?? res.statusText)
+  }
+  return res.json()
+}
+
+// Users
+export const getUsers = (page = 1, pageSize = 50) =>
+  request<PagedResult<User>>(`/api/users?page=${page}&pageSize=${pageSize}`)
+
+export const getUserTenants = (userId: string) =>
+  request<Tenant[]>(`/api/users/${userId}/tenants`)
+
+export const createUser = (data: CreateUserPayload) =>
+  request<User>('/api/users', { method: 'POST', body: JSON.stringify(data) })
+
+export const deactivateUser = (id: string) =>
+  request<void>(`/api/users/${id}/deactivate`, { method: 'POST' })
+
+export const activateUser = (id: string) =>
+  request<void>(`/api/users/${id}/activate`, { method: 'POST' })
+
+export const changeRole = (id: string, globalRole: string) =>
+  request<void>(`/api/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ newRole: globalRole }) })
+
+// Tenants
+export const getTenants = (page = 1, pageSize = 50) =>
+  request<PagedResult<Tenant>>(`/api/tenants?page=${page}&pageSize=${pageSize}`)
+
+export const createTenant = (data: CreateTenantPayload) =>
+  request<Tenant>('/api/tenants', { method: 'POST', body: JSON.stringify(data) })
+
+export const suspendTenant = (id: string) =>
+  request<void>(`/api/tenants/${id}/suspend`, { method: 'POST' })
+
+export const deactivateTenant = (id: string) =>
+  request<void>(`/api/tenants/${id}/deactivate`, { method: 'POST' })
+
+export const addMember = (tenantId: string, userId: string, role: string) =>
+  request<void>(`/api/tenants/${tenantId}/members`, { method: 'POST', body: JSON.stringify({ userId, role }) })
+
+export const suspendMember = (tenantId: string, userId: string) =>
+  request<void>(`/api/tenants/${tenantId}/members/${userId}/suspend`, { method: 'POST' })
+
+export const leaveMember = (tenantId: string, userId: string) =>
+  request<void>(`/api/tenants/${tenantId}/members/${userId}/leave`, { method: 'POST' })
+
+export const getTenantMembers = (tenantId: string) =>
+  request<Member[]>(`/api/tenants/${tenantId}/members`)
+
+export const removeMember = (tenantId: string, userId: string) =>
+  request<void>(`/api/tenants/${tenantId}/members/${userId}`, { method: 'DELETE' })
+
+export const changeMemberRole = (tenantId: string, userId: string, newRole: string) =>
+  request<void>(`/api/tenants/${tenantId}/members/${userId}/role`, { method: 'PATCH', body: JSON.stringify({ newRole }) })
+
+// Ranchos
+export const getRanchos = (tenantId: string) =>
+  request<Rancho[]>('/api/ranchos', {}, tenantId)
+
+export const createRancho = (data: CreateRanchoPayload, tenantId: string) =>
+  request<Rancho>('/api/ranchos', { method: 'POST', body: JSON.stringify(data) }, tenantId)
+
+export const deactivateRancho = (id: string, tenantId: string) =>
+  request<void>(`/api/ranchos/${id}/deactivate`, { method: 'POST' }, tenantId)
+
+export const activateRancho = (id: string, tenantId: string) =>
+  request<void>(`/api/ranchos/${id}/activate`, { method: 'POST' }, tenantId)
+
+// Parcelas
+export const getParcelas = (ranchoId: string, tenantId: string) =>
+  request<Parcela[]>(`/api/parcelas?ranchoId=${ranchoId}`, {}, tenantId)
+
+export const createParcela = (data: CreateParcelaPayload, tenantId: string) =>
+  request<Parcela>('/api/parcelas', { method: 'POST', body: JSON.stringify(data) }, tenantId)
+
+export const deactivateParcela = (id: string, tenantId: string) =>
+  request<void>(`/api/parcelas/${id}/deactivate`, { method: 'POST' }, tenantId)
+
+export const activateParcela = (id: string, tenantId: string) =>
+  request<void>(`/api/parcelas/${id}/activate`, { method: 'POST' }, tenantId)
+
+// Edge Function
+export const createUserFull = async (data: CreateUserFullPayload) => {
+  const { data: session } = await supabase.auth.getSession()
+  const token = session.session?.access_token
+  if (!token) await endExpiredSession()
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+  const res = await fetch(`${supabaseUrl}/functions/v1/create-user`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) await endExpiredSession()
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.error?.message ?? err.message ?? res.statusText)
+  }
+  return res.json()
+}
+
+// Types
+export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number }
+export interface Coordinate { lat: number; lng: number }
+export interface User { id: string; authId: string; email: string; name: string; lastName: string; globalRole: string; isActive: boolean; createdAt: string }
+export interface Tenant { id: string; name: string; slug: string; status: string; timezone: string; defaultLanguage: string; maxUsers: number; memberCount: number; country?: string | null; address?: string | null; phoneNumber?: string | null; email?: string | null; createdAt: string; updatedAt?: string | null }
+export interface Member { userId: string; name: string; lastName: string; email: string; role: string; status: string; createdAt: string; updatedAt?: string | null }
+export interface Rancho { id: string; tenantId: string; cooperativaId?: string | null; name: string; coordinates: Coordinate[]; fuenteGeom: string; municipio?: string | null; estado?: string | null; region?: string | null; altitudM?: number | null; isActive: boolean; createdAt: string; updatedAt?: string | null }
+export interface Parcela { id: string; ranchoId: string; tenantId: string; name: string; coordinates: Coordinate[]; centroideLat: number; centroideLng: number; areaHa: number; fuenteGeom: string; municipio?: string | null; estado?: string | null; region?: string | null; altitudM?: number | null; isActive: boolean; createdAt: string; updatedAt?: string | null }
+export interface CreateUserFullPayload { email: string; password: string; name: string; lastName: string; globalRole: string }
+export interface CreateUserPayload { authId: string; email: string; name: string; lastName: string; globalRole: string }
+export interface CreateTenantPayload { name: string; timezone: string; defaultLanguage: string; maxUsers: number; adminUserId: string }
+export interface GeoMeta { municipio?: string; estado?: string; region?: string; altitudM?: number }
+export interface CreateRanchoPayload { name: string; fuenteGeom: string; coordinates: { lat: number; lng: number }[]; cooperativaId?: string; municipio?: string; estado?: string; region?: string; altitudM?: number }
+export interface CreateParcelaPayload { ranchoId: string; name: string; fuenteGeom: string; coordinates: { lat: number; lng: number }[]; municipio?: string; estado?: string; region?: string; altitudM?: number }
