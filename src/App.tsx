@@ -5,9 +5,10 @@ import LoginPage from '@/pages/LoginPage'
 import UsersPage from '@/pages/UsersPage'
 import TenantsPage from '@/pages/TenantsPage'
 import RanchosPage from '@/pages/RanchosPage'
+import DiagnosticoPage from '@/pages/DiagnosticoPage'
 import { Button } from '@/components/ui/button'
 
-type Tab = 'usuarios' | 'tenants' | 'ranchos'
+type Tab = 'usuarios' | 'tenants' | 'ranchos' | 'diagnóstico'
 
 // [B-2] Gate COSMÉTICO. Decodifica el payload del JWT SIN verificar la firma, solo
 // para ocultar la UI de admin a no-staff. La autorización real la hace Geocore, que
@@ -56,13 +57,21 @@ export default function App() {
     )
   }
 
+  // Diagnóstico: sólo TerraAdmin, no cualquier TerraStaff. Como el resto de este
+  // gate, ocultar la pestaña es cosmético [B-2]: lo que protege el dato es la
+  // política `TerraAdmin` de GET /api/admin/diagnostico en Geocore (DECISIONS #19).
+  const esAdminGlobal = globalRole === 'TerraAdmin'
+  const tabs: Tab[] = esAdminGlobal
+    ? ['usuarios', 'tenants', 'ranchos', 'diagnóstico']
+    : ['usuarios', 'tenants', 'ranchos']
+
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="bg-card border-b px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <span className="font-semibold text-lg">Terra Admin</span>
           <nav className="flex gap-1">
-            {(['usuarios', 'tenants', 'ranchos'] as Tab[]).map(t => (
+            {tabs.map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -83,6 +92,7 @@ export default function App() {
         {tab === 'usuarios' && <UsersPage />}
         {tab === 'tenants' && <TenantsPage />}
         {tab === 'ranchos' && <RanchosPage />}
+        {tab === 'diagnóstico' && esAdminGlobal && <DiagnosticoPage />}
       </main>
     </div>
   )

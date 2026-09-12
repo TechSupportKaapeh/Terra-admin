@@ -1,0 +1,11 @@
+# Se instalan dentro de la imagen con `npm ci`.
+node_modules
+dist
+.git
+
+# Críticas: Vite carga .env.local también al compilar para producción. Si
+# entrara, el bundle saldría con los valores de desarrollo —la URL de ngrok—
+# en vez de los de Railway, y los secretos locales quedarían en la capa.
+.env
+.env.*
+*.local

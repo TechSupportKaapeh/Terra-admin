@@ -159,3 +159,33 @@ export interface CreateTenantPayload { name: string; timezone: string; defaultLa
 export interface GeoMeta { municipio?: string; estado?: string; region?: string; altitudM?: number }
 export interface CreateRanchoPayload { name: string; fuenteGeom: string; coordinates: { lat: number; lng: number }[]; cooperativaId?: string; municipio?: string; estado?: string; region?: string; altitudM?: number }
 export interface CreateParcelaPayload { ranchoId: string; name: string; fuenteGeom: string; coordinates: { lat: number; lng: number }[]; municipio?: string; estado?: string; region?: string; altitudM?: number }
+
+// Diagnóstico — sólo TerraAdmin
+//
+// `/api/admin/diagnostico` lo protege la política TerraAdmin de Geocore. Los otros
+// tres ya los tenía TerraStaff: el token de mapa y las capas.
+export const getDiagnostico = () => request<Diagnostico>('/api/admin/diagnostico')
+
+export const getMapToken = () => request<{ token: string }>('/api/maps/token')
+
+// TerraStaff lista sin X-Tenant-ID: el tenant va como filtro en la query.
+export const getLayers = (tenantId: string) =>
+  request<LayerSummary[]>(`/api/layers?tenantId=${encodeURIComponent(tenantId)}&limit=50`)
+
+export const getLayer = (id: string) => request<LayerDetail>(`/api/layers/${encodeURIComponent(id)}`)
+
+/** Una base, un servicio o el sondeo de uno. `cuerpo` es lo que el servicio dijo de sí mismo. */
+export interface EstadoServicio { nombre: string; estado: string; http: number | null; ms: number; detalle: string; cuerpo: unknown }
+export interface Diagnostico {
+  generadoEn: string
+  geocore: {
+    entorno: string
+    bases: EstadoServicio[]
+    configuracion: { clave: string; estado: string; paraQue: string }[]
+    corsOrigins: string[]
+  }
+  servicios: EstadoServicio[]
+}
+export interface LayerSummary { id: string; tenantId: string; parcelaId: string | null; ranchoId: string | null; product: string; storageKey: string; acquiredTs: string; source: string; createdAt: string }
+/** `tiles[0]` es la plantilla de TiTiler SIN rescale, colormap_name ni token: los agrega el front. */
+export interface LayerDetail { layerId: string; indice: string; fecha: string; tiles: string[]; bounds: number[]; minzoom: number; maxzoom: number }

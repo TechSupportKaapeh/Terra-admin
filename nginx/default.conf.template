@@ -1,0 +1,29 @@
+server {
+    # IPv4 e IPv6: la red privada de Railway es sólo IPv6.
+    listen ${PORT};
+    listen [::]:${PORT};
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Sin versión de nginx en las cabeceras ni en las páginas de error.
+    server_tokens off;
+
+    # SPA: toda ruta que no sea un archivo cae en index.html. index.html nunca se
+    # cachea, para que un deploy nuevo se vea al recargar.
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        # No "no-referrer": los tiles de OpenStreetMap exigen Referer y el panel
+        # los usa en los mapas de ranchos y parcelas.
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    # Los assets de Vite llevan hash en el nombre: son inmutables.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+}
