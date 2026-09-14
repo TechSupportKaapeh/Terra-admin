@@ -120,7 +120,8 @@ export default function RanchosPage() {
   // activate/deactivate agregados al backend; recarga la lista para reflejar el estado.
   async function toggleRancho(r: Rancho) {
     try {
-      r.isActive ? await deactivateRancho(r.id, tenantId) : await activateRancho(r.id, tenantId)
+      if (r.isActive) await deactivateRancho(r.id, tenantId)
+      else await activateRancho(r.id, tenantId)
       loadRanchos()
     } catch (err) {
       const msg = describeError(err)
@@ -131,7 +132,8 @@ export default function RanchosPage() {
   // Ídem para parcelas. Mismo patrón reversible que toggleRancho.
   async function toggleParcela(p: Parcela) {
     try {
-      p.isActive ? await deactivateParcela(p.id, tenantId) : await activateParcela(p.id, tenantId)
+      if (p.isActive) await deactivateParcela(p.id, tenantId)
+      else await activateParcela(p.id, tenantId)
       loadParcelas()
     } catch (err) {
       const msg = describeError(err)
