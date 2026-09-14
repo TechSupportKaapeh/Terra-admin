@@ -1,0 +1,58 @@
+# CI del panel (Geocore DECISIONS #24, tarea M.0.4 de
+# geework 2.0/docs/SPRINTS_FASE_M.md; el criterio común a los cuatro repos está en
+# DECISIONS #34 del worker).
+#
+# Nada llega a `main` —ni a Railway, con "Wait for CI"— sin lint, typecheck,
+# build y auditoría de dependencias en verde.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Solo lectura: el CI no escribe en el repo ni publica nada.
+permissions:
+  contents: read
+
+# Un push nuevo a un PR cancela la corrida anterior del mismo PR. En `main` no se
+# cancela: cada commit que llega a producción tiene que tener su resultado.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    # Es el nombre del check obligatorio en la protección de `main` (M.0.6):
+    # cambiarlo obliga a cambiar esa regla.
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # 22 es la del Dockerfile (`node:22-alpine`).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # `eslint .`, el mismo comando que en local. Corta con errores, no con
+      # warnings: quedan 5 de exhaustive-deps, que se van al partir RanchosPage
+      # (M.7.2).
+      - name: Lint
+        run: npm run lint
+
+      # `tsc -b && vite build`: el typecheck estricto va adentro del build, sobre
+      # tsconfig.app.json y tsconfig.node.json. Sin las VITE_* el bundle compila
+      # igual; el Dockerfile es el que exige que estén.
+      - name: Typecheck y build
+        run: npm run build
+
+      # Solo lo que llega al navegador (`--omit=dev`), y corta con altas o
+      # críticas. Las de las herramientas de desarrollo no entran al bundle.
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=high
