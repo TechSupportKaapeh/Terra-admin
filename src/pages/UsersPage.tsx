@@ -59,7 +59,8 @@ export default function UsersPage() {
   // TerraAdmin activo [N-3]; ese 409 llega aquí y se muestra en el banner.
   async function toggleActive(user: User) {
     try {
-      user.isActive ? await deactivateUser(user.id) : await activateUser(user.id)
+      if (user.isActive) await deactivateUser(user.id)
+      else await activateUser(user.id)
       load()
     } catch (err) {
       const msg = describeError(err)

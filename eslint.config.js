@@ -19,4 +19,15 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Los componentes que genera shadcn exportan sus variantes y hooks
+    // (`buttonVariants`, `useSidebar`) junto al componente: así los escribe la
+    // CLI. Separarlos haría chocar cada `shadcn add` con el código local. El
+    // costo es menor: editar uno de estos archivos recarga la página entera en
+    // vez de hacer fast refresh. Geocore DECISIONS #24.
+    files: ['src/components/ui/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
