@@ -17,13 +17,22 @@ Tres solapas:
 La capa a probar se elige **en cascada**, no de una lista suelta:
 
 ```
-tenant → rancho o parcela → métrica → fecha
+tenant → rancho o parcela → métrica → fecha (deslizador)
 ```
 
-Cada nivel se arma con lo que existe en el de arriba, así que **no se puede pedir una
-combinación que no está**: si un rancho sólo tiene NDVI, el selector de métrica muestra
-NDVI y nada más; si de ese índice hay 24 meses, el de fecha muestra esos 24, del más nuevo
-al más viejo.
+Los tres primeros son desplegables y **cada uno se arma con lo que existe en el de
+arriba**, así que no se puede pedir una combinación que no está: si un rancho sólo tiene
+NDVI, el selector de métrica muestra NDVI y nada más.
+
+**La fecha es un deslizador con flechas**, no un desplegable: los meses de una serie se
+miran de corrido, y la gracia es ver cómo cambia el ráster al avanzar. Va de la fecha más
+vieja a la más nueva —el tiempo hacia la derecha—, las flechas mueven de a un mes, y al
+elegir una métrica salta sola a la más reciente.
+
+**Arrastrar no dispara un pedido por mes.** El tile se pide **250 ms después** de soltar o
+de dejar de moverse: sin esa pausa, ir de enero a diciembre lanzaría doce veces la cadena
+entera —detalle de la capa, `/cog/info`, `/cog/statistics` y los tiles— y las respuestas
+llegarían desordenadas. La etiqueta sí se actualiza en el acto: lo que se lee sigue al dedo.
 
 Tres cosas que no son obvias:
 
