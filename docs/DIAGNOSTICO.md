@@ -10,7 +10,37 @@ Tres solapas:
 |---|---|
 | **Servicios** | ¿Geocore, el tileserver y el worker están vivos y bien configurados? |
 | **Tiles** | ¿La cadena de tiles funciona de punta a punta, desde el token hasta el PNG? |
-| **Datos** | ¿Qué datos tiene cada tenant, y tienen sentido? |
+| **Datos** | ¿Qué tiene procesado cada tenant, y tiene sentido? |
+
+## El límite con las pantallas de trabajo
+
+Desde M.7 (2026-09-20) el panel **muestra lo que el pipeline produce** en las pantallas
+donde se trabaja: la serie mensual de una parcela y el mapa por mes de un rancho salen de
+su fila en Ranchos. Eso deja una pregunta que hay que contestar antes de agregar nada acá:
+
+> **Diagnóstico contesta «¿por qué no se ve?». Ranchos contesta «¿qué dice el dato?».**
+
+| Lo que se quiere saber | Dónde va |
+|---|---|
+| El dato de **una** entidad que alguien preguntó | **Ranchos** → «Serie» en una parcela, «Mapa» en un rancho |
+| «¿Este tenant está bien procesado?», sin una entidad en mente | **Diagnóstico → Datos** |
+| «Esta imagen no se ve, ¿por qué?» — el token, el 403, el COG, el píxel | **Diagnóstico → Tiles** |
+| «¿Está vivo el worker?» | **Diagnóstico → Servicios** |
+
+**Lo que no se hace: el mismo dibujo en los dos lados.** El gráfico de la serie estuvo acá
+como prototipo hasta que M.7.3 lo puso en su pantalla; **se quitó de Diagnóstico el
+2026-09-20**, el mismo día. Si un día hace falta otra vez, se comparte el componente —no se
+copia—, como ya pasa con `SerieMensual`, `useMapToken`, `DeslizadorDeMeses` y `PALETAS`.
+
+**Por qué Tiles no es un duplicado del mapa del rancho**, aunque los dos pinten un COG:
+
+- **cuando un tile falla, el mapa del rancho no dice nada** —un `<img>` que falla deja un
+  hueco y nada más—. Tiles lo vuelve a pedir con `fetch` para leer el error y traducirlo;
+- **muestra capas que el mapa del rancho no muestra**: las de **parcela** y las de la capa
+  vieja. El mapa del rancho filtra a propósito las capas del rancho;
+- **deja mover el rescale y la paleta**, que es lo que hace falta para mirar el dato crudo.
+  El mapa del rancho usa la escala fija de cada índice, justamente para que el mismo verde
+  sea siempre el mismo valor.
 
 ## Tiles — el catálogo (2026-09-20)
 
@@ -90,41 +120,19 @@ tenant está bien procesado?".
 índices y meses. Un rancho en cero es *o* que nunca se procesó *o* que ningún mes tuvo un
 píxel limpio (`DECISIONS #51` del worker): el panel no puede distinguirlos, y lo dice.
 
-**El gráfico de una parcela** es la serie mensual de un índice: la mediana, con la banda
-p10–p90 detrás.
+**El gráfico de la serie ya no está acá** (2026-09-20). Vivió en esta solapa como
+prototipo, y desde M.7.3 se mira en **Ranchos → Parcelas → «Serie»**, que es donde está la
+parcela por la que alguien pregunta. Lo dibuja `components/series/SerieMensual.tsx`, y el
+porqué de cada detalle —la línea cortada, el punto hueco, la tabla de números— está en
+`docs/RANCHOS.md`.
 
-### Por qué el gráfico está dibujado así
-
-Es un **prototipo**: la pantalla del cliente es M.7.3. Existe para mirar con ojos los
-números del pipeline antes de construirla, y para que la decisión de librería la tome M.7.3
-sabiendo qué interacción hace falta. Por eso es SVG a mano, sin dependencias (decisión del
-usuario, 2026-09-20).
-
-Tres cosas que el dibujo distingue a propósito, porque son tres cosas distintas:
-
-- **Mes sin dato** (`valor` null): el mes **se procesó**, pero la cobertura quedó bajo el
-  mínimo de la receta. La línea se corta y queda una marca en el eje. No se interpola:
-  una recta entre dos meses inventa un valor que nadie midió.
-- **Mes ausente** (ninguna fila): nadie lo procesó. También corta la línea, y se ve en la
-  tabla de números.
-- **Mes de baja cobertura** (< 50 %): hay dato, pero de poca superficie. El punto va
-  **hueco**, que es una segunda codificación además del color: se lee sin distinguir
-  colores, y sobrevive a una impresión en blanco y negro.
-
-**El eje vertical sale de los datos, no del rango del índice.** Un NDVI que se mueve entre
-0,30 y 0,60 dibujado en \[-1, 1\] es una línea plana que no dice nada.
-
-**Hay una tabla de números** debajo, plegada. No es un extra: la banda p10–p90 es un relleno
-de bajo contraste, y la tabla es lo que la hace legible sin depender del color.
-
-**Colores**: un solo tono azul, con la banda un paso más clara (`#b7d3f6` en claro,
-`#184f95` en oscuro) y la línea en el paso fuerte (`#2a78d6` / `#3987e5`). Es una rampa
-secuencial de un tono, que es lo que corresponde a una sola serie; los colores por índice
-para el mapa los decide M.7.4.
+Esta solapa quedó con lo que no tiene otro lugar: **el inventario**.
 
 ### Lo que falta
 
-- **No hay mapa acá**: el ráster por mes es M.7.4.
-- **La métrica del rancho** (`GET /api/ranchos/{id}/metricas`) todavía no se muestra;
-  entra con M.7.4, que la dibuja al lado del mapa con su `fraccionArea`.
-- **Sin tests**: el panel no tiene ninguno todavía (M.7.6). El gráfico se verificó a ojo.
+- **Cruzar los `.tif` del bucket con las filas de `layers`**: objetos sin fila y filas sin
+  objeto. Hoy el inventario cuenta lo que dice la base, y confía en que el bucket coincida.
+- **Después de M.8.1, revisar esta pestaña entera.** Cuando el token de mapa lleve el
+  tenant y el tileserver exija ese prefijo en la key, Tiles pasa a ser la pantalla donde se
+  verifica ese 403, y varias de sus 672 líneas —el rescale a mano, la paleta— puede que
+  convenga podarlas en vez de mantenerlas.

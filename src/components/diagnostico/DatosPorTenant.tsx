@@ -3,26 +3,26 @@ import {
   getTenants, getRanchos, getParcelas, getLayers, describeError,
   type Tenant, type Rancho, type Parcela, type LayerSummary,
 } from '@/lib/api'
-import { useSerieMensual } from '@/lib/useEntidades'
 import { Label } from '@/components/ui/label'
 import Selector from '@/components/Selector'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import SerieMensual from '@/components/series/SerieMensual'
 
 /**
- * Qué datos tiene cada tenant, y cómo se ven.
+ * El inventario de un tenant: cuánto hay procesado y si tiene sentido.
  *
- * **Prototipo del Diagnóstico** (TerraAdmin), no la pantalla del cliente: la serie mensual
- * de verdad es M.7.3 y el mapa por mes M.7.4. Esta existe para contestar de un vistazo
- * "¿este tenant está bien procesado?" y para mirar con ojos los números que produce el
- * pipeline.
+ * **Contesta una sola pregunta, y es de flota: «¿este tenant está bien procesado?»** Cuánto
+ * hay, de cuándo es lo último que entró, y qué ranchos están en cero. No mira una entidad
+ * en particular — para eso están las pantallas de trabajo.
+ *
+ * **Acá no se dibuja la serie de una parcela.** Estuvo, como prototipo, hasta que M.7.3 la
+ * puso donde se trabaja (Ranchos → Parcelas → «Serie»). Se quitó el 2026-09-20 para no
+ * tener el mismo gráfico en dos lugares: el límite entre esta pestaña y las de trabajo está
+ * escrito en `docs/DIAGNOSTICO.md`.
  *
  * **Carga por tenant, no de todos.** El inventario de un tenant son 2 + N pedidos (ranchos,
  * capas, y las parcelas de cada rancho): hacerlo para todos los tenants al abrir la pestaña
  * sería una tormenta de pedidos para una pantalla que se mira de a uno.
  */
-
-const OPCIONES_INDICE = ['ndvi', 'evi', 'ndre', 'ndmi'].map(i => ({ value: i, label: i.toUpperCase() }))
 
 interface Inventario {
   ranchos: Rancho[]
@@ -44,12 +44,7 @@ export default function DatosPorTenant() {
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [tenantId, setTenantId] = useState('')
   const [inventario, setInventario] = useState<Inventario | null>(null)
-  const [parcelaId, setParcelaId] = useState('')
-  const [indice, setIndice] = useState<string>('ndvi')
   const [error, setError] = useState('')
-  // La serie va por el hook compartido con la pantalla de trabajo (M.7.3): cancela el
-  // pedido anterior, así cambiar de parcela o de índice rápido no pinta el que llegó tarde.
-  const { filas: serie, error: errorSerie } = useSerieMensual(parcelaId, tenantId, indice)
   const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
@@ -65,7 +60,6 @@ export default function DatosPorTenant() {
   function elegirTenant(v: string) {
     setTenantId(v)
     setInventario(null)
-    setParcelaId('')
   }
 
   useEffect(() => {
@@ -121,7 +115,7 @@ export default function DatosPorTenant() {
         {cargando && <span className="text-sm text-muted-foreground">Cargando…</span>}
       </div>
 
-      {(error || errorSerie) && <p className="text-destructive text-sm">{error || errorSerie}</p>}
+      {error && <p className="text-destructive text-sm">{error}</p>}
 
       {inventario && (
         <>
@@ -174,29 +168,13 @@ export default function DatosPorTenant() {
             </Table>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1 min-w-56">
-              <Label>Parcela</Label>
-              <Selector
-                items={parcelas.map(p => ({ value: p.id, label: p.name }))}
-                value={parcelaId}
-                onValueChange={setParcelaId}
-                placeholder={parcelas.length ? 'Elegí una parcela' : 'Este tenant no tiene parcelas'}
-                vacio="Este tenant no tiene parcelas"
-              />
-            </div>
-            <div className="space-y-1 min-w-32">
-              <Label>Índice</Label>
-              <Selector
-                items={OPCIONES_INDICE}
-                value={indice}
-                onValueChange={v => setIndice(v || 'ndvi')}
-              />
-            </div>
-          </div>
-
-          {parcelaId && serie && <SerieMensual filas={serie} indice={indice} />}
-          {parcelaId && serie === null && <p className="text-sm text-muted-foreground">Cargando la serie…</p>}
+          {/* Dónde está lo que esta pestaña ya no hace. Es una línea de texto y no un
+              enlace porque el panel navega por estado, no por ruta: no hay a dónde apuntar. */}
+          <p className="text-sm text-muted-foreground">
+            La serie mensual de una parcela se mira en <b>Ranchos → Parcelas → «Serie»</b>, y el
+            mapa por mes de un rancho en <b>Ranchos → «Mapa»</b>. Acá queda el inventario: qué
+            hay procesado y de cuándo.
+          </p>
         </>
       )}
     </div>
