@@ -41,10 +41,16 @@ jobs:
         run: npm ci
 
       # `eslint .`, el mismo comando que en local. Corta con errores, no con
-      # warnings: quedan 5 de exhaustive-deps, que se van al partir RanchosPage
-      # (M.7.2).
+      # warnings: quedan 3 de exhaustive-deps, en Users, Tenants y Miembros.
       - name: Lint
         run: npm run lint
+
+      # `vitest run` sobre `src/lib/` (M.7.6): las funciones puras del panel, sin
+      # DOM y sin red. Van antes del build porque tardan medio segundo y fallan
+      # mucho más rápido que un bundle. Es el único paso nuevo del CI del panel
+      # desde M.0.4; la protección de `main` (M.0.6) sigue postergada.
+      - name: Tests
+        run: npm test
 
       # `tsc -b && vite build`: el typecheck estricto va adentro del build, sobre
       # tsconfig.app.json y tsconfig.node.json. Sin las VITE_* el bundle compila
