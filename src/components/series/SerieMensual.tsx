@@ -5,8 +5,10 @@ import { escalaDe } from '@/lib/indices'
 /**
  * La serie mensual de una parcela: la mediana, con la banda p10–p90 detrás.
  *
- * **Prototipo del Diagnóstico**, no la pantalla del cliente: eso es M.7.3, y esta existe
- * para mirar con ojos los números que el pipeline produce antes de construirla.
+ * Nació como prototipo del Diagnóstico (2026-09-20) y desde M.7.3 es también el gráfico
+ * de la pantalla de trabajo: lo abre [`SerieParcelaSheet`](SerieParcelaSheet.tsx) desde
+ * la tabla de parcelas. Sólo dibuja lo que recibe; quién pide las filas y con qué índice
+ * lo deciden los dos llamadores.
  *
  * Tres cosas que el dibujo tiene que distinguir, y que son el motivo de que exista:
  *
@@ -18,8 +20,8 @@ import { escalaDe } from '@/lib/indices'
  * - **un mes de baja cobertura** trae dato, pero de poca superficie: el punto va hueco. Es
  *   una segunda codificación además del color, que es lo que pide que se lea sin color.
  *
- * SVG a mano y sin librería (decisión del usuario, 2026-09-20): el dibujo es simple y así
- * no se compromete la decisión de M.7.3.
+ * SVG a mano y sin librería: confirmado por el usuario al abrir M.7.3 (2026-09-20). El
+ * dibujo es simple y una librería de gráficos pesa más que lo que ahorra.
  */
 
 /** Debajo de esto, el dato existe pero describe poca superficie. */

@@ -8,10 +8,11 @@ import type { Parcela, Proceso } from '@/lib/api'
  * Las parcelas del rancho elegido. A diferencia de la tabla de ranchos, la fila no
  * selecciona nada: no hay un nivel más abajo al que bajar.
  */
-export default function TablaParcelas({ parcelas, ultimoProceso, onEditar, onAlternarActivo, onAbrirBitacora }: {
+export default function TablaParcelas({ parcelas, ultimoProceso, onVerSerie, onEditar, onAlternarActivo, onAbrirBitacora }: {
   parcelas: Parcela[]
   /** El último proceso de cada parcela, por id. */
   ultimoProceso: Map<string, Proceso>
+  onVerSerie: (p: Parcela) => void
   onEditar: (p: Parcela) => void
   onAlternarActivo: (p: Parcela) => void
   onAbrirBitacora: (jobId: string) => void
@@ -37,6 +38,9 @@ export default function TablaParcelas({ parcelas, ultimoProceso, onEditar, onAlt
             <TableCell><Badge variant={p.isActive ? 'default' : 'secondary'}>{p.isActive ? 'Activa' : 'Inactiva'}</Badge></TableCell>
             <TableCell><CeldaProceso proceso={ultimoProceso.get(p.id)} onAbrir={onAbrirBitacora} /></TableCell>
             <TableCell className="text-right whitespace-nowrap">
+              <Button variant="ghost" size="sm" onClick={() => onVerSerie(p)}>
+                Serie
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => onEditar(p)}>
                 Editar
               </Button>
