@@ -56,21 +56,32 @@ y área. El nombre va primero: si la geometría se rechaza, el renombre igual qu
 - `422 PARCELAS_FUERA_DEL_RANCHO` — el rancho se achicó y deja parcelas afuera. El
   mensaje **nombra cuáles** y cuánto queda afuera de cada una.
 
-## Lo que cambiar la geometría **no** hace
+## Qué pasa con lo que ya se había calculado
 
-**No recalcula lo ya procesado.** Las mediciones mensuales y los mapas que existen se
-calcularon con el polígono viejo. Para rehacerlos hay que reprocesar la entidad:
+**Se borra y se recalcula solo** (Geocore `DECISIONS #34`). Al guardar una geometría nueva:
+
+- se **borran** los datos derivados de esa entidad —de una parcela, sus mediciones y sus
+  mapas a demanda; de un rancho, sus mapas—, porque salieron del polígono viejo y
+  describen otro pedazo de tierra;
+- se **encola el reproceso**, que recalcula los 24 meses;
+- el diálogo muestra el resumen —cuántas filas se borraron y que el reproceso quedó en
+  cola— y se sigue en la pestaña **Procesos**.
+
+Un hueco de unos minutos es honesto; un NDVI de otro lado no, porque nada lo distingue de
+un dato bueno.
+
+**Si el reproceso no se pudo encolar** —Inngest caído, por ejemplo—, el diálogo lo dice en
+rojo: los datos quedaron borrados y hay que reprocesar a mano.
 
 ```bash
-curl -X POST <geocore>/api/admin/procesos/reprocesar \
-  -H "Authorization: Bearer <JWT de TerraAdmin>" \
-  -H "Content-Type: application/json" \
-  -d '{"ranchoId": "<id>"}'
+curl -X POST <geocore>/api/admin/procesos/reprocesar   -H "Authorization: Bearer <JWT de TerraAdmin>"   -H "Content-Type: application/json"   -d '{"ranchoId": "<id>"}'
 ```
 
-Republica el alta completa —los 24 meses— y, si es un rancho, arrastra sus parcelas
-activas. Todavía no tiene botón en el panel: va con M.7.
+Reprocesar un **rancho** arrastra además sus parcelas activas.
 
+**El mapa nuevo se ve enseguida:** la URL de tiles lleva `&v=<fecha de ingesta>`, que
+cambia al recalcular. Sin eso el navegador seguiría mostrando la imagen vieja hasta un
+año, porque el tileserver la sirve como `immutable`.
 ## Lo que falta (M.7.5)
 
 Dibujar el polígono **con clics sobre el mapa**, arrastrar vértices, y ver el rancho de
