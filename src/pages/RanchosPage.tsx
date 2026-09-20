@@ -16,6 +16,7 @@ import EditarEntidadDialog from '@/components/EditarEntidadDialog'
 import CrearEntidadDialog, { type DatosNuevaEntidad } from '@/components/ranchos/CrearEntidadDialog'
 import TablaRanchos from '@/components/ranchos/TablaRanchos'
 import TablaParcelas from '@/components/ranchos/TablaParcelas'
+import SerieParcelaSheet from '@/components/series/SerieParcelaSheet'
 
 /**
  * Ranchos y parcelas de un tenant: las dos tablas, el mapa y las altas.
@@ -32,6 +33,8 @@ export default function RanchosPage() {
   const [tenantId, setTenantId] = useState('')
   const [ranchoElegido, setRanchoElegido] = useState('')
   const [jobAbierto, setJobAbierto] = useState<string | null>(null)
+  // La parcela cuya serie mensual está abierta; null = el panel está cerrado.
+  const [serieDe, setSerieDe] = useState<Parcela | null>(null)
   // Qué se está editando; null = el diálogo está cerrado.
   const [ranchoEditando, setRanchoEditando] = useState<Rancho | null>(null)
   const [parcelaEditando, setParcelaEditando] = useState<Parcela | null>(null)
@@ -46,13 +49,19 @@ export default function RanchosPage() {
   const { procesos, recargar: recargarProcesos } = useProcesos(tenantId ? { tenantId, limit: 200 } : null)
   const { porParcela, porRancho } = ultimoPorEntidad(procesos)
 
-  // Cambiar de tenant limpia el rancho elegido: el de antes es de otro tenant, y
-  // dejarlo pedía sus parcelas y dejaba un id suelto en el desplegable. Va en el
-  // handler y no en un efecto (`set-state-in-effect`, `DECISIONS #24` de Geocore).
+  // Cambiar de tenant limpia todo lo que apunta al tenant de antes: el rancho elegido
+  // —dejarlo pedía sus parcelas y dejaba un id suelto en el desplegable— y los paneles
+  // abiertos, que si no seguirían pidiendo una parcela del tenant anterior con la cabecera
+  // del nuevo. Va en el handler y no en un efecto (`set-state-in-effect`,
+  // `DECISIONS #24` de Geocore).
   function elegirTenant(id: string) {
     setTenantId(id)
     setRanchoElegido('')
     setErrorAccion('')
+    setSerieDe(null)
+    setJobAbierto(null)
+    setRanchoEditando(null)
+    setParcelaEditando(null)
   }
 
   /** Corre una acción de la tabla y recarga; el error va al banner, no a la consola. */
@@ -171,6 +180,7 @@ export default function RanchosPage() {
             <TablaParcelas
               parcelas={parcelas ?? []}
               ultimoProceso={porParcela}
+              onVerSerie={setSerieDe}
               onEditar={setParcelaEditando}
               onAlternarActivo={p => accion(
                 () => p.isActive ? deactivateParcela(p.id, tenantId) : activateParcela(p.id, tenantId),
@@ -210,6 +220,8 @@ export default function RanchosPage() {
         onGuardado={recargarParcelas}
         onCerrar={() => setParcelaEditando(null)}
       />}
+
+      <SerieParcelaSheet parcela={serieDe} tenantId={tenantId} onClose={() => setSerieDe(null)} />
 
       <BitacoraSheet jobId={jobAbierto} onClose={() => setJobAbierto(null)} />
     </div>

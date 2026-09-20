@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
-  getTenants, getRanchos, getParcelas, getLayers, getMeasurements, describeError,
-  type Tenant, type Rancho, type Parcela, type LayerSummary, type Measurement,
+  getTenants, getRanchos, getParcelas, getLayers, describeError,
+  type Tenant, type Rancho, type Parcela, type LayerSummary,
 } from '@/lib/api'
+import { useSerieMensual } from '@/lib/useEntidades'
 import { Label } from '@/components/ui/label'
 import Selector from '@/components/Selector'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import SerieMensual from './SerieMensual'
+import SerieMensual from '@/components/series/SerieMensual'
 
 /**
  * Qué datos tiene cada tenant, y cómo se ven.
@@ -45,8 +46,10 @@ export default function DatosPorTenant() {
   const [inventario, setInventario] = useState<Inventario | null>(null)
   const [parcelaId, setParcelaId] = useState('')
   const [indice, setIndice] = useState<string>('ndvi')
-  const [serie, setSerie] = useState<Measurement[] | null>(null)
   const [error, setError] = useState('')
+  // La serie va por el hook compartido con la pantalla de trabajo (M.7.3): cancela el
+  // pedido anterior, así cambiar de parcela o de índice rápido no pinta el que llegó tarde.
+  const { filas: serie, error: errorSerie } = useSerieMensual(parcelaId, tenantId, indice)
   const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
@@ -63,7 +66,6 @@ export default function DatosPorTenant() {
     setTenantId(v)
     setInventario(null)
     setParcelaId('')
-    setSerie(null)
   }
 
   useEffect(() => {
@@ -92,20 +94,6 @@ export default function DatosPorTenant() {
     return () => { cancelado = true }
   }, [tenantId])
 
-  useEffect(() => {
-    if (!parcelaId || !tenantId) return
-    let cancelado = false
-
-    getMeasurements(parcelaId, tenantId, indice)
-      .then(r => { if (!cancelado) setSerie(r.data) })
-      .catch(e => {
-        const m = describeError(e)
-        if (m && !cancelado) setError(m)
-      })
-
-    return () => { cancelado = true }
-  }, [parcelaId, tenantId, indice])
-
   const parcelas = inventario
     ? [...inventario.parcelasPorRancho.values()].flat()
     : []
@@ -133,7 +121,7 @@ export default function DatosPorTenant() {
         {cargando && <span className="text-sm text-muted-foreground">Cargando…</span>}
       </div>
 
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {(error || errorSerie) && <p className="text-destructive text-sm">{error || errorSerie}</p>}
 
       {inventario && (
         <>
@@ -192,7 +180,7 @@ export default function DatosPorTenant() {
               <Selector
                 items={parcelas.map(p => ({ value: p.id, label: p.name }))}
                 value={parcelaId}
-                onValueChange={v => { setParcelaId(v); setSerie(null) }}
+                onValueChange={setParcelaId}
                 placeholder={parcelas.length ? 'Elegí una parcela' : 'Este tenant no tiene parcelas'}
                 vacio="Este tenant no tiene parcelas"
               />
@@ -202,7 +190,7 @@ export default function DatosPorTenant() {
               <Selector
                 items={OPCIONES_INDICE}
                 value={indice}
-                onValueChange={v => { setIndice(v || 'ndvi'); setSerie(null) }}
+                onValueChange={v => setIndice(v || 'ndvi')}
               />
             </div>
           </div>
