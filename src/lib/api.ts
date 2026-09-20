@@ -236,7 +236,12 @@ export interface CreateParcelaPayload { ranchoId: string; name: string; fuenteGe
 // tres ya los tenía TerraStaff: el token de mapa y las capas.
 export const getDiagnostico = () => request<Diagnostico>('/api/admin/diagnostico')
 
-export const getMapToken = () => request<{ token: string }>('/api/maps/token')
+// El token de mapa es de UN tenant desde M.8.1 (Geocore `DECISIONS #42`): lleva `tenant_id`
+// adentro y el tileserver rechaza con 403 cualquier COG que no cuelgue de `tenants/{ese}/`.
+// Por eso `X-Tenant-ID` es obligatorio acá, como en el resto de la API: sin la cabecera,
+// Geocore no sabe para qué tenant firmar y contesta 400.
+export const getMapToken = (tenantId: string) =>
+  request<{ token: string }>('/api/maps/token', {}, tenantId)
 
 // TerraStaff lista sin X-Tenant-ID: el tenant va como filtro en la query.
 // El techo de Geocore es 5000 (DECISIONS #28). 50 alcanzaba cuando un rancho tenía 24 capas

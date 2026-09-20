@@ -60,7 +60,7 @@ function Mapa({ rancho, tenantId }: { rancho: Rancho; tenantId: string }) {
   const { capas, error: errorCapas } = useCapasDeRancho(rancho.id, tenantId)
   const { parcelas } = useParcelas(rancho.id, tenantId)
   const { metricas, error: errorMetricas } = useMetricasRancho(rancho.id, tenantId, indice)
-  const { token, error: errorToken } = useMapToken(true)
+  const { token, error: errorToken } = useMapToken(tenantId, true)
 
   // Los meses que este índice tiene, del más viejo al más nuevo. Un mes sin un píxel
   // limpio no tiene COG (worker `DECISIONS #51`), así que la lista tiene huecos a
