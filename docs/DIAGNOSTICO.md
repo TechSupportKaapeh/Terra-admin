@@ -12,6 +12,32 @@ Tres solapas:
 | **Tiles** | ¿La cadena de tiles funciona de punta a punta, desde el token hasta el PNG? |
 | **Datos** | ¿Qué datos tiene cada tenant, y tienen sentido? |
 
+## Tiles — el catálogo (2026-09-20)
+
+La capa a probar se elige **en cascada**, no de una lista suelta:
+
+```
+tenant → rancho o parcela → métrica → fecha
+```
+
+Cada nivel se arma con lo que existe en el de arriba, así que **no se puede pedir una
+combinación que no está**: si un rancho sólo tiene NDVI, el selector de métrica muestra
+NDVI y nada más; si de ese índice hay 24 meses, el de fecha muestra esos 24, del más nuevo
+al más viejo.
+
+Tres cosas que no son obvias:
+
+- **Los nombres se cruzan en el panel.** Las capas viven en GeoData y los nombres de rancho
+  y parcela en la base principal (`DECISIONS #15`): no hay join posible, así que el
+  catálogo pide las dos cosas y las junta por id. Una entidad sin nombre —borrada, o de
+  otro tenant— se muestra con su id recortado, en vez de desaparecer del catálogo.
+- **Una capa puede ser de un rancho o de una parcela.** Los mapas mensuales son del rancho;
+  los de parcela son on-demand, de la capa vieja, y **no llevan `ranchoId`**, así que
+  aparecen como su propia entrada («parcela de …»).
+- **El techo de `limit` subió a 2000.** Estaba en 50, que alcanzaba cuando un rancho tenía
+  24 capas de NDVI; desde que el mapa es de los cuatro índices (worker `DECISIONS #58`) son
+  96 por rancho y por alta, y con 50 el catálogo habría mostrado una parte sin decirlo.
+
 ## Datos (2026-09-20)
 
 Se carga **de a un tenant**: su inventario son 2 + N pedidos —ranchos, capas, y las

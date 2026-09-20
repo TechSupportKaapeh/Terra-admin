@@ -207,8 +207,11 @@ export const getDiagnostico = () => request<Diagnostico>('/api/admin/diagnostico
 export const getMapToken = () => request<{ token: string }>('/api/maps/token')
 
 // TerraStaff lista sin X-Tenant-ID: el tenant va como filtro en la query.
-export const getLayers = (tenantId: string) =>
-  request<LayerSummary[]>(`/api/layers?tenantId=${encodeURIComponent(tenantId)}&limit=50`)
+// El techo de Geocore es 5000 (DECISIONS #28). 50 alcanzaba cuando un rancho tenía 24 capas
+// de NDVI; desde que el mapa es de los cuatro índices (worker DECISIONS #58) son 96 por
+// rancho y por alta, y con 50 el catálogo mostraría una parte sin decirlo.
+export const getLayers = (tenantId: string, limit = 2000) =>
+  request<LayerSummary[]>(`/api/layers?tenantId=${encodeURIComponent(tenantId)}&limit=${limit}`)
 
 export const getLayer = (id: string) => request<LayerDetail>(`/api/layers/${encodeURIComponent(id)}`)
 

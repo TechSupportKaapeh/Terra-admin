@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import type { TileErrorEvent } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
-  getTenants, getLayers, getLayer, getMapToken, describeError,
+  getTenants, getRanchos, getParcelas, getLayers, getLayer, getMapToken, describeError,
   type Tenant, type LayerSummary, type LayerDetail,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -131,6 +131,11 @@ export default function PilotoTiles() {
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [tenantId, setTenantId] = useState('')
   const [capas, setCapas] = useState<LayerSummary[]>([])
+  // El catálogo: tenant → entidad → métrica → fecha. `entidad` es "r:<id>" o "p:<id>",
+  // porque una capa puede ser de un rancho o de una parcela y los ids no se mezclan.
+  const [nombres, setNombres] = useState<Map<string, string>>(new Map())
+  const [entidad, setEntidad] = useState('')
+  const [metrica, setMetrica] = useState('')
   const [capa, setCapa] = useState<LayerDetail | null>(null)
   const [token, setToken] = useState('')
   const [exp, setExp] = useState<number | null>(null)
@@ -193,12 +198,74 @@ export default function PilotoTiles() {
     setCapa(null)
     setInfo(null)
     setAviso(null)
+    setEntidad('')
+    setMetrica('')
+    setNombres(new Map())
     try {
-      setCapas(await getLayers(id))
+      // Los nombres viven en la base principal y las capas en GeoData (`DECISIONS #15`):
+      // no hay join, así que el catálogo los cruza acá por id.
+      const [sus, ranchos] = await Promise.all([getLayers(id), getRanchos(id)])
+      const mapa = new Map<string, string>()
+      for (const r of ranchos) mapa.set(`r:${r.id}`, r.name)
+      for (const r of ranchos) {
+        for (const pa of await getParcelas(r.id, id)) {
+          mapa.set(`p:${pa.id}`, `${pa.name} · parcela de ${r.name}`)
+        }
+      }
+      setCapas(sus)
+      setNombres(mapa)
     } catch (e) {
       setAviso(describeError(e))
     }
   }
+
+  /** La entidad de una capa: su rancho, o su parcela si es de una (las on-demand). */
+  function claveDeEntidad(c: LayerSummary): string {
+    return c.parcelaId ? `p:${c.parcelaId}` : `r:${c.ranchoId ?? 'sin-entidad'}`
+  }
+
+  // --- El catálogo: cada nivel sale del anterior --------------------------------------
+  //
+  // Se deriva de `capas` en cada render y no se guarda en estado: guardar una lista que ya
+  // se puede calcular es la forma de que se desincronice con la de arriba.
+
+  const entidades = useMemo(() => {
+    const porClave = new Map<string, number>()
+    for (const c of capas) porClave.set(claveDeEntidad(c), (porClave.get(claveDeEntidad(c)) ?? 0) + 1)
+    return [...porClave.entries()]
+      .map(([clave, cuenta]) => ({
+        clave,
+        capas: cuenta,
+        // Sin nombre: la entidad existe en GeoData y no en la base principal (o se borró).
+        etiqueta: nombres.get(clave) ?? `${clave.startsWith('p:') ? 'Parcela' : 'Rancho'} ${clave.slice(2, 10)}…`,
+      }))
+      .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+  }, [capas, nombres])
+
+  const metricas = useMemo(() => {
+    const porIndice = new Map<string, number>()
+    for (const c of capas) {
+      if (claveDeEntidad(c) !== entidad) continue
+      porIndice.set(c.product, (porIndice.get(c.product) ?? 0) + 1)
+    }
+    return [...porIndice.entries()]
+      .map(([indice, meses]) => ({ indice, meses }))
+      .sort((a, b) => a.indice.localeCompare(b.indice))
+  }, [capas, entidad])
+
+  const fechas = useMemo(() =>
+    capas
+      .filter(c => claveDeEntidad(c) === entidad && c.product === metrica)
+      // De la más nueva a la más vieja: lo que se quiere mirar suele ser lo último.
+      .sort((a, b) => b.acquiredTs.localeCompare(a.acquiredTs))
+      .map(c => ({
+        id: c.id,
+        etiqueta: c.source === 'mensual'
+          ? c.acquiredTs.slice(0, 7)
+          : `${c.acquiredTs.slice(0, 10)} · ${c.source}`,
+      })),
+  [capas, entidad, metrica])
+
 
   async function elegirCapa(id: string) {
     setTrabajando(true)
@@ -300,23 +367,76 @@ export default function PilotoTiles() {
           </Select>
         </div>
 
-        {tenantId && (
-          <div className="space-y-1">
-            <Label className="text-xs">Capas ({capas.length})</Label>
-            <div className="max-h-48 space-y-1 overflow-y-auto">
-              {capas.length === 0 && <p className="text-sm text-muted-foreground">Sin capas. ¿El worker ya registró alguna para este tenant?</p>}
-              {capas.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => void elegirCapa(c.id)}
-                  className={`w-full rounded-md border px-2 py-1.5 text-left font-mono text-xs transition-colors hover:border-primary ${capa?.layerId === c.id ? 'border-primary bg-primary/5' : ''}`}
-                >
-                  {c.acquiredTs.slice(0, 10)} · {c.product} · <span className="break-all">{c.storageKey}</span>
-                </button>
-              ))}
+        {tenantId && capas.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Sin capas. ¿El worker ya registró alguna para este tenant?
+          </p>
+        )}
+
+        {/* El catálogo, en cascada: cada nivel se arma con lo que hay en el de arriba, así
+            no se ofrece una combinación que no existe. */}
+        {tenantId && capas.length > 0 && (
+          <>
+            <div className="space-y-1">
+              <Label className="text-xs">Rancho o parcela ({entidades.length})</Label>
+              <Select
+                value={entidad || null}
+                onValueChange={v => { if (v) { setEntidad(v); setMetrica('') } }}
+                items={Object.fromEntries(entidades.map(e => [e.clave, e.etiqueta]))}
+              >
+                <SelectTrigger className="w-full"><SelectValue placeholder="Elegí uno" /></SelectTrigger>
+                <SelectContent>
+                  {entidades.map(e => (
+                    <SelectItem key={e.clave} value={e.clave}>{e.etiqueta} ({e.capas})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
+
+            {entidad && (
+              <div className="space-y-1">
+                <Label className="text-xs">Métrica ({metricas.length})</Label>
+                <Select
+                  value={metrica || null}
+                  onValueChange={v => { if (v) setMetrica(v) }}
+                  items={Object.fromEntries(metricas.map(m => [m.indice, m.indice.toUpperCase()]))}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Elegí una" /></SelectTrigger>
+                  <SelectContent>
+                    {metricas.map(m => (
+                      <SelectItem key={m.indice} value={m.indice}>
+                        {m.indice.toUpperCase()} ({m.meses} fechas)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {entidad && metrica && (
+              <div className="space-y-1">
+                <Label className="text-xs">Fecha ({fechas.length})</Label>
+                <Select
+                  value={capa?.layerId ?? null}
+                  onValueChange={v => { if (v) void elegirCapa(v) }}
+                  items={Object.fromEntries(fechas.map(f => [f.id, f.etiqueta]))}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Elegí una fecha" /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {fechas.map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.etiqueta}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {capa && (
+              <p className="break-all font-mono text-[11px] text-muted-foreground">
+                {capas.find(c => c.id === capa.layerId)?.storageKey}
+              </p>
+            )}
+          </>
         )}
 
         <div className="flex items-center gap-2 text-sm">
