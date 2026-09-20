@@ -47,7 +47,15 @@ async function request<T>(path: string, options: RequestInit = {}, tenantId?: st
     const err = await res.json().catch(() => ({ message: res.statusText }))
     throw new Error(err.message ?? res.statusText)
   }
-  return res.json()
+
+  // Varias rutas de Geocore contestan **204 sin cuerpo**: activar y desactivar, y los PATCH de
+  // nombre y geometría. `res.json()` sobre un cuerpo vacío tira "Unexpected end of JSON input",
+  // así que la llamada fallaba en el panel **después** de que el backend la hubiera aplicado:
+  // el peor de los errores, porque dice que no se guardó algo que sí se guardó.
+  // Se leyó como texto para cubrir también un 200 con cuerpo vacío.
+  if (res.status === 204) return undefined as T
+  const texto = await res.text()
+  return (texto ? JSON.parse(texto) : undefined) as T
 }
 
 // Users
