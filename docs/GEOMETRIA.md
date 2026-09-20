@@ -83,18 +83,6 @@ Reprocesar un **rancho** arrastra además sus parcelas activas.
 cambia al recalcular. Sin eso el navegador seguiría mostrando la imagen vieja hasta un
 año, porque el tileserver la sirve como `immutable`.
 
-## Dibujar con clics (M.7.5, 2026-09-20)
-
-**«Dibujar con clics»** debajo del mapa lo agranda y pone cada clic como un vértice, en
-orden. **Deshacer punto** saca el último, y **Cerrar polígono** —el de siempre— lo termina.
-
-Los clics y el cuadro de texto son **lo mismo**: el clic escribe una línea `lat,lng` con
-seis decimales (~10 cm) y el borrador se sigue derivando del texto. Así se puede dibujar
-a mano alzada y después corregir un número a mano, sin dos estados que se peleen.
-
-**Al prender el dibujo, el cuadrado de ejemplo se borra.** Agregarle puntos a un ejemplo
-no es lo que nadie quiere, y es lo que pasaría si se quedara.
-
 ## El rancho de referencia, y los vértices afuera
 
 Cuando lo que se carga es una **parcela**, el rancho se dibuja de fondo, punteado y en
@@ -112,10 +100,15 @@ La prueba de adentro/afuera es el método del rayo sobre lat/lng
 plana, no geodésica**: a la escala de un rancho la diferencia no alcanza a cambiar de
 lado salvo pegado al borde.
 
+## Dibujar con clics: fuera, por decisión del usuario (2026-09-20)
+
+Se llegó a hacer y **se sacó el mismo día**: un botón agrandaba el mapa y cada clic ponía
+un vértice. **La carga sigue siendo por texto o por archivo**, con el borrador en vivo.
+
+No es deuda ni un pendiente: si alguna vez vuelve, vuelve porque alguien lo pida.
+
 ## Lo que sigue faltando
 
-- **Arrastrar un vértice** ya puesto: hoy se deshace y se vuelve a marcar, o se corrige el
-  número en el texto.
 - **La capa satelital de fondo**, para dibujar sobre lo que se ve en el campo y no sobre
   el mapa de calles. Falta confirmar la licencia de la imagen; el mapa del rancho (M.7.4)
   ya usa la de Esri, así que la pregunta es si vale para este uso también.

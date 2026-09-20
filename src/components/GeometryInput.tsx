@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleMarker, MapContainer, Polyline, TileLayer, Polygon, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { CircleMarker, MapContainer, Polyline, TileLayer, Polygon, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
@@ -20,20 +20,10 @@ interface Props {
 }
 
 /**
- * El cuadrado de ejemplo con el que arranca el cuadro de texto. Existe para que se vea de
- * qué forma es lo que hay que escribir; al empezar a dibujar con clics se borra, porque
- * agregar puntos a un ejemplo no es lo que nadie quiere.
+ * El cuadrado de ejemplo con el que arranca el cuadro de texto: existe para que se vea de
+ * qué forma es lo que hay que escribir.
  */
 const PLANTILLA = '20.6597,-103.3496\n20.6630,-103.3496\n20.6630,-103.3450\n20.6597,-103.3450\n20.6597,-103.3496'
-
-/** Seis decimales son ~10 cm: más precisión que la del clic, y menos ruido que el float entero. */
-const comoTexto = (c: Coord) => `${c.lat.toFixed(6)},${c.lng.toFixed(6)}`
-
-/** Agrega un punto por cada clic en el mapa, mientras el modo dibujo esté prendido. */
-function AlHacerClick({ onClick }: { onClick: (c: Coord) => void }) {
-  useMapEvents({ click: e => onClick({ lat: e.latlng.lat, lng: e.latlng.lng }) })
-  return null
-}
 
 /**
  * Encuadra lo que se está mirando. Sigue al **borrador**, no a lo aplicado: mientras se
@@ -112,7 +102,6 @@ export default function GeometryInput({ value, onChange, referencia }: Props) {
     value.map(c => `${c.lat},${c.lng}`).join('\n') || PLANTILLA
   )
   const [parseError, setParseError] = useState('')
-  const [dibujando, setDibujando] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // El borrador se deriva del texto en cada tecleo: es lo que se dibuja en vivo. Lo que se
@@ -124,21 +113,6 @@ export default function GeometryInput({ value, onChange, referencia }: Props) {
   // Qué vértices se salen del rancho. Se calcula sobre el borrador —en vivo, mientras se
   // dibuja o se escribe—, que es cuando corregirlo no cuesta nada.
   const afuera = referencia ? verticesAfuera(borrador, referencia.coordinates) : []
-
-  function agregarPunto(c: Coord) {
-    setParseError('')
-    setManualText(t => (t.trim() ? `${t.trimEnd()}\n` : '') + comoTexto(c))
-  }
-
-  function deshacerPunto() {
-    setManualText(t => t.trimEnd().split('\n').slice(0, -1).join('\n'))
-  }
-
-  /** Al prender el dibujo, el ejemplo se va: agregarle puntos no es lo que nadie quiere. */
-  function alternarDibujo() {
-    if (!dibujando && manualText.trim() === PLANTILLA) setManualText('')
-    setDibujando(d => !d)
-  }
 
   const defaultCenter: [number, number] = value.length > 0
     ? [value[0].lat, value[0].lng]
@@ -188,7 +162,7 @@ ${primero.lat},${primero.lng}`)
       {/* `isolate`: encierra los z-index de Leaflet (400/1000) en el contenedor. Hoy
           este mapa vive dentro de un DialogContent, que ya es su propio contexto, pero
           si se usara fuera de un diálogo taparía cualquier cosa con z-50. */}
-      <div className={`isolate overflow-hidden rounded-md border ${dibujando ? 'h-80' : 'h-48'}`}>
+      <div className="isolate h-48 overflow-hidden rounded-md border">
         <MapContainer center={defaultCenter} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -236,28 +210,11 @@ ${primero.lat},${primero.lng}`)
             )
           })}
 
-          {dibujando && <AlHacerClick onClick={agregarPunto} />}
           <FitBounds
             coords={sinAplicar && borrador.length > 0 ? borrador : value}
             referencia={referencia?.coordinates}
           />
         </MapContainer>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant={dibujando ? 'default' : 'outline'} onClick={alternarDibujo}>
-          {dibujando ? 'Dibujando…' : 'Dibujar con clics'}
-        </Button>
-        {dibujando && borrador.length > 0 && (
-          <Button type="button" size="sm" variant="outline" onClick={deshacerPunto}>
-            Deshacer punto
-          </Button>
-        )}
-        {dibujando && (
-          <span className="text-xs text-muted-foreground">
-            Cada clic en el mapa agrega un vértice, en orden. «Cerrar polígono» lo termina.
-          </span>
-        )}
       </div>
 
       <Tabs defaultValue="manual">
