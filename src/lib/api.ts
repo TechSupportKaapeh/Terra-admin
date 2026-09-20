@@ -133,6 +133,38 @@ export const deactivateRancho = (id: string, tenantId: string) =>
 export const activateRancho = (id: string, tenantId: string) =>
   request<void>(`/api/ranchos/${id}/activate`, { method: 'POST' }, tenantId)
 
+// La métrica mensual del rancho (Geocore M.3.3, `DECISIONS #29`).
+//
+// No hay una medición de rancho guardada: Geocore la calcula al consultar, promediando las
+// medianas de sus parcelas **ponderadas por área**. El promedio **divide por el área con
+// dato, no por la total**, así que `valor` y `fraccionArea` se leen juntos: un NDVI de 0,62
+// del 20 % del rancho no dice lo mismo que el mismo 0,62 del 95 %.
+//
+// Por defecto son los últimos 24 meses; el tope de Geocore es 60.
+export const getMetricasRancho = (id: string, tenantId: string, indice: string) =>
+  request<MetricasRancho>(`/api/ranchos/${id}/metricas?indice=${encodeURIComponent(indice)}`, {}, tenantId)
+
+export interface MetricaMensual {
+  /** `AAAA-MM`. */
+  periodo: string
+  /** El promedio ponderado, o null si ese mes no tuvo ninguna parcela con dato. */
+  valor: number | null
+  areaConDatoHa: number
+  /** Del área total del rancho, qué fracción (0–1) tuvo dato ese mes. */
+  fraccionArea: number
+  parcelasConDato: number
+}
+
+export interface MetricasRancho {
+  ranchoId: string
+  indice: string
+  desde: string
+  hasta: string
+  parcelas: number
+  areaTotalHa: number
+  data: MetricaMensual[]
+}
+
 // Parcelas
 export const getParcelas = (ranchoId: string, tenantId: string) =>
   request<Parcela[]>(`/api/parcelas?ranchoId=${ranchoId}`, {}, tenantId)

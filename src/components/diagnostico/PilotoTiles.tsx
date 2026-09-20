@@ -3,12 +3,13 @@ import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import type { TileErrorEvent } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
-  getTenants, getRanchos, getParcelas, getLayers, getLayer, getMapToken, describeError,
+  getTenants, getRanchos, getParcelas, getLayers, getLayer, describeError,
   type Tenant, type LayerSummary, type LayerDetail,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { escalaDe } from '@/lib/indices'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { escalaDe, PALETAS } from '@/lib/indices'
+import { useMapToken } from '@/lib/useMapToken'
+import DeslizadorDeMeses from '@/components/mapas/DeslizadorDeMeses'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Selector from '@/components/Selector'
@@ -35,26 +36,6 @@ interface CogInfo { dtype: string; count: number; bounds: [number, number, numbe
 interface BandStats { min: number; max: number; percentile_2: number; percentile_98: number; valid_percent?: number }
 interface Respuesta { status: number; cuerpo: unknown; bytes?: number }
 
-// Las paradas de ColorBrewer que usa matplotlib, de donde rio-tiler saca sus
-// colormaps: la leyenda sale del mismo degradado que el tile.
-const PALETAS: Record<string, string> = {
-  rdylgn: '#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837',
-  ylgn: '#ffffe5,#f7fcb9,#d9f0a3,#addd8e,#78c679,#41ab5d,#238443,#006837,#004529',
-  greens: '#f7fcf5,#e5f5e0,#c7e9c0,#a1d99b,#74c476,#41ab5d,#238b45,#006d2c,#00441b',
-  viridis: '#440154,#482878,#3e4989,#31688e,#26828e,#1f9e89,#35b779,#6ece58,#b5de2b,#fde725',
-  spectral: '#9e0142,#d53e4f,#f46d43,#fdae61,#fee08b,#ffffbf,#e6f598,#abdda4,#66c2a5,#3288bd,#5e4fa2',
-  rdbu: '#67001f,#b2182b,#d6604d,#f4a582,#fddbc7,#f7f7f7,#d1e5f0,#92c5de,#4393c3,#2166ac,#053061',
-}
-
-/** Del JWT sólo se lee `exp` para la cuenta regresiva. La firma la valida TiTiler. */
-function vencimiento(token: string): number | null {
-  try {
-    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return typeof p.exp === 'number' ? p.exp : null
-  } catch {
-    return null
-  }
-}
 
 /** La plantilla de Geocore trae `{z}/{x}/{y}`, que `new URL` codificaría: se reemplaza antes. */
 function partirPlantilla(plantilla: string) {
@@ -168,9 +149,9 @@ export default function PilotoTiles() {
   const [posicion, setPosicion] = useState(0)
   const esperaDelSlider = useRef<number | null>(null)
   const [capa, setCapa] = useState<LayerDetail | null>(null)
-  const [token, setToken] = useState('')
-  const [exp, setExp] = useState<number | null>(null)
-  const [ahora, setAhora] = useState(0)
+  // El token de mapa, con su renovación y su cuenta regresiva, compartido con el mapa del
+  // rancho (M.7.4): las dos pantallas tienen que renovarlo con el mismo margen.
+  const { token, restante, tokenNuevo, asegurarToken } = useMapToken()
   const [info, setInfo] = useState<CogInfo | null>(null)
   const [stats, setStats] = useState<BandStats | null>(null)
   const [rmin, setRmin] = useState('-1')
@@ -189,12 +170,6 @@ export default function PilotoTiles() {
     getTenants(1, 200).then(r => setTenants(r.items)).catch(e => setAviso(describeError(e)))
   }, [])
 
-  useEffect(() => {
-    if (!exp) return
-    const id = setInterval(() => setAhora(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [exp])
-
   const plantilla = capa?.tiles[0] ?? null
   const partes = plantilla ? partirPlantilla(plantilla) : null
   const min = parseFloat(rmin)
@@ -203,25 +178,6 @@ export default function PilotoTiles() {
   const urlTiles = plantilla && token && rangoValido
     ? `${plantilla}&${new URLSearchParams({ rescale: `${min},${max}`, colormap_name: cmap, token })}`
     : null
-  const restante = exp && ahora ? Math.round(exp - ahora / 1000) : null
-
-  async function tokenNuevo(): Promise<string> {
-    const { token: t } = await getMapToken()
-    setToken(t)
-    // La cuenta regresiva arranca con el primer tic del intervalo, un segundo
-    // después. El reloj se lee sólo ahí, fuera del render.
-    setExp(vencimiento(t))
-    return t
-  }
-
-  async function asegurarToken(): Promise<string> {
-    // Se renueva con 5 minutos de margen, no al vencer: un token que vence en
-    // medio de un paneo deja el mapa lleno de 401 sin ningún error visible.
-    // `restante` tiene a lo sumo un segundo de atraso; antes del primer tic es
-    // null y se pide uno nuevo, que no cuesta nada.
-    if (token && restante !== null && restante > 300) return token
-    return tokenNuevo()
-  }
 
   async function elegirTenant(id: string) {
     setTenantId(id)
@@ -462,49 +418,14 @@ export default function PilotoTiles() {
                   Fecha ({posicion + 1} de {fechas.length})
                 </Label>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                    aria-label="Mes anterior"
-                    disabled={posicion === 0}
-                    onClick={() => irAFecha(posicion - 1)}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-
-                  <div className="min-w-24 text-center font-mono text-sm tabular-nums">
-                    {fechas[posicion]?.etiqueta}
-                  </div>
-
-                  <Button
-                    type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                    aria-label="Mes siguiente"
-                    disabled={posicion >= fechas.length - 1}
-                    onClick={() => irAFecha(posicion + 1)}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* El deslizador va de la fecha más vieja a la más nueva: el tiempo hacia
-                    la derecha. Las flechas del teclado lo mueven de a un mes. */}
-                <input
-                  type="range"
-                  className="w-full accent-primary"
-                  min={0}
-                  max={Math.max(0, fechas.length - 1)}
-                  step={1}
-                  value={posicion}
-                  disabled={fechas.length < 2}
-                  aria-label="Fecha de la capa"
-                  aria-valuetext={fechas[posicion]?.etiqueta}
-                  onChange={e => irAFecha(Number(e.target.value))}
+                {/* El mismo deslizador que el mapa del rancho (M.7.4). La pausa antes de
+                    pedir el tile la pone `irAFecha`, no el deslizador. */}
+                <DeslizadorDeMeses
+                  etiquetas={fechas.map(f => f.etiqueta)}
+                  posicion={posicion}
+                  onPosicion={irAFecha}
+                  nombre="Fecha de la capa"
                 />
-
-                <div className="flex justify-between font-mono text-[10px] text-muted-foreground">
-                  <span>{fechas[0]?.etiqueta}</span>
-                  <span>{fechas.at(-1)?.etiqueta}</span>
-                </div>
               </div>
             )}
 

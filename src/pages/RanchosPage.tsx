@@ -17,6 +17,7 @@ import CrearEntidadDialog, { type DatosNuevaEntidad } from '@/components/ranchos
 import TablaRanchos from '@/components/ranchos/TablaRanchos'
 import TablaParcelas from '@/components/ranchos/TablaParcelas'
 import SerieParcelaSheet from '@/components/series/SerieParcelaSheet'
+import MapaRanchoSheet from '@/components/mapas/MapaRanchoSheet'
 
 /**
  * Ranchos y parcelas de un tenant: las dos tablas, el mapa y las altas.
@@ -35,6 +36,8 @@ export default function RanchosPage() {
   const [jobAbierto, setJobAbierto] = useState<string | null>(null)
   // La parcela cuya serie mensual está abierta; null = el panel está cerrado.
   const [serieDe, setSerieDe] = useState<Parcela | null>(null)
+  // El rancho cuyo mapa mensual está abierto.
+  const [mapaDe, setMapaDe] = useState<Rancho | null>(null)
   // Qué se está editando; null = el diálogo está cerrado.
   const [ranchoEditando, setRanchoEditando] = useState<Rancho | null>(null)
   const [parcelaEditando, setParcelaEditando] = useState<Parcela | null>(null)
@@ -59,6 +62,7 @@ export default function RanchosPage() {
     setRanchoElegido('')
     setErrorAccion('')
     setSerieDe(null)
+    setMapaDe(null)
     setJobAbierto(null)
     setRanchoEditando(null)
     setParcelaEditando(null)
@@ -137,6 +141,7 @@ export default function RanchosPage() {
               seleccionado={ranchoElegido}
               ultimoProceso={porRancho}
               onSeleccionar={setRanchoElegido}
+              onVerMapa={setMapaDe}
               onEditar={setRanchoEditando}
               onAlternarActivo={r => accion(
                 () => r.isActive ? deactivateRancho(r.id, tenantId) : activateRancho(r.id, tenantId),
@@ -220,6 +225,8 @@ export default function RanchosPage() {
         onGuardado={recargarParcelas}
         onCerrar={() => setParcelaEditando(null)}
       />}
+
+      <MapaRanchoSheet rancho={mapaDe} tenantId={tenantId} onClose={() => setMapaDe(null)} />
 
       <SerieParcelaSheet parcela={serieDe} tenantId={tenantId} onClose={() => setSerieDe(null)} />
 

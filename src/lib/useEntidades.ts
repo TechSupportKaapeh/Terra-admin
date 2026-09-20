@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  describeError, getMeasurements, getParcelas, getRanchos, getTenants,
-  type Measurement, type Parcela, type Rancho, type Tenant,
+  describeError, getLayer, getLayers, getMeasurements, getMetricasRancho, getParcelas, getRanchos, getTenants,
+  type LayerDetail, type LayerSummary, type Measurement, type MetricasRancho, type Parcela, type Rancho, type Tenant,
 } from '@/lib/api'
 
 /**
@@ -88,6 +88,30 @@ const PEDIR_SERIE = (clave: string) => {
   return getMeasurements(parcelaId, tenantId, indice).then(r => r.data)
 }
 
+/**
+ * Las capas del rancho, no las de sus parcelas.
+ *
+ * **El filtro por rancho es de acá porque `GET /api/layers` no lo tiene**: filtra por
+ * tenant o por parcela, y nada más. Con el techo de 2000 capas alcanza para el tenant
+ * entero —un rancho son 96 por alta, cuatro índices por 24 meses—, así que traerlas y
+ * filtrarlas cuesta un pedido. Si algún tenant pasa ese techo, el filtro tiene que
+ * mudarse al servidor.
+ *
+ * `parcelaId === null` no es de más: la capa de una parcela también lleva el `ranchoId`
+ * de su rancho, y sin eso el mapa del rancho mezclaría los rásters de sus parcelas.
+ */
+const PEDIR_CAPAS_RANCHO = (clave: string) => {
+  const [tenantId, ranchoId] = clave.split('/')
+  return getLayers(tenantId).then(capas => capas.filter(c => c.ranchoId === ranchoId && c.parcelaId === null))
+}
+
+const PEDIR_CAPA = (layerId: string) => getLayer(layerId)
+
+const PEDIR_METRICAS = (clave: string) => {
+  const [tenantId, ranchoId, indice] = clave.split('/')
+  return getMetricasRancho(ranchoId, tenantId, indice)
+}
+
 /** Los tenants que ve este usuario. Se piden una vez: no dependen de nada de la pantalla. */
 export function useTenants() {
   const [tenants, setTenants] = useState<Tenant[]>([])
@@ -136,4 +160,32 @@ export function useSerieMensual(parcelaId: string, tenantId: string, indice: str
   const clave = parcelaId && tenantId && indice ? `${tenantId}/${parcelaId}/${indice}` : null
   const { datos, error, recargar } = useCargado<Measurement[]>(clave, PEDIR_SERIE)
   return { filas: datos, error, recargar }
+}
+
+/** Las capas mensuales de un rancho, de todos sus índices y meses. */
+export function useCapasDeRancho(ranchoId: string, tenantId: string) {
+  const clave = ranchoId && tenantId ? `${tenantId}/${ranchoId}` : null
+  const { datos, error, recargar } = useCargado<LayerSummary[]>(clave, PEDIR_CAPAS_RANCHO)
+  return { capas: datos, error, recargar }
+}
+
+/**
+ * El detalle de una capa: la plantilla de tiles, el encuadre y el zoom nativo.
+ *
+ * Es el segundo pedido de la cadena del mapa: el listado dice qué capas hay, y esto,
+ * cómo pintar una. Cambiar de mes es cambiar de capa, así que la clave es su id.
+ */
+export function useCapa(layerId: string) {
+  const { datos, error, recargar } = useCargado<LayerDetail>(layerId || null, PEDIR_CAPA)
+  return { capa: datos, error, recargar }
+}
+
+/**
+ * La métrica mensual del rancho para un índice: el promedio ponderado por área de sus
+ * parcelas, mes a mes, con la fracción del área que tuvo dato.
+ */
+export function useMetricasRancho(ranchoId: string, tenantId: string, indice: string) {
+  const clave = ranchoId && tenantId && indice ? `${tenantId}/${ranchoId}/${indice}` : null
+  const { datos, error, recargar } = useCargado<MetricasRancho>(clave, PEDIR_METRICAS)
+  return { metricas: datos, error, recargar }
 }

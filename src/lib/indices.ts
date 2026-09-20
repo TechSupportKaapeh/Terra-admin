@@ -14,6 +14,22 @@
  * dónde arranca, no una jaula.
  */
 
+/**
+ * Las paradas de ColorBrewer que usa matplotlib, de donde rio-tiler saca sus colormaps.
+ *
+ * Están acá y no junto a un mapa porque son las dos puntas de lo mismo: TiTiler pinta el
+ * tile con `colormap_name`, y la leyenda tiene que salir del **mismo** degradado o el
+ * mapa dice una cosa y su escala otra.
+ */
+export const PALETAS: Record<string, string> = {
+  rdylgn: '#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837',
+  ylgn: '#ffffe5,#f7fcb9,#d9f0a3,#addd8e,#78c679,#41ab5d,#238443,#006837,#004529',
+  greens: '#f7fcf5,#e5f5e0,#c7e9c0,#a1d99b,#74c476,#41ab5d,#238b45,#006d2c,#00441b',
+  viridis: '#440154,#482878,#3e4989,#31688e,#26828e,#1f9e89,#35b779,#6ece58,#b5de2b,#fde725',
+  spectral: '#9e0142,#d53e4f,#f46d43,#fdae61,#fee08b,#ffffbf,#e6f598,#abdda4,#66c2a5,#3288bd,#5e4fa2',
+  rdbu: '#67001f,#b2182b,#d6604d,#f4a582,#fddbc7,#f7f7f7,#d1e5f0,#92c5de,#4393c3,#2166ac,#053061',
+}
+
 export interface EscalaDeIndice {
   /** Qué mide, en una línea: va en la leyenda. */
   que: string

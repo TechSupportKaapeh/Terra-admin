@@ -11,12 +11,13 @@ import type { Proceso, Rancho } from '@/lib/api'
  *
  * Sólo dibuja: qué hace cada acción lo decide la pantalla.
  */
-export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onSeleccionar, onEditar, onAlternarActivo, onAbrirBitacora }: {
+export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onSeleccionar, onVerMapa, onEditar, onAlternarActivo, onAbrirBitacora }: {
   ranchos: Rancho[]
   seleccionado: string
   /** El último proceso de cada rancho, por id. */
   ultimoProceso: Map<string, Proceso>
   onSeleccionar: (id: string) => void
+  onVerMapa: (r: Rancho) => void
   onEditar: (r: Rancho) => void
   onAlternarActivo: (r: Rancho) => void
   onAbrirBitacora: (jobId: string) => void
@@ -44,6 +45,13 @@ export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onS
             <TableCell><Badge variant={r.isActive ? 'default' : 'secondary'}>{r.isActive ? 'Activo' : 'Inactivo'}</Badge></TableCell>
             <TableCell><CeldaProceso proceso={ultimoProceso.get(r.id)} onAbrir={onAbrirBitacora} /></TableCell>
             <TableCell className="text-right whitespace-nowrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={e => { e.stopPropagation(); onVerMapa(r) }}
+              >
+                Mapa
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
