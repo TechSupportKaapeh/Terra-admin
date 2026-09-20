@@ -4,7 +4,7 @@ import { alerta, duracionDe, entidad, esActivo, etiquetaTipo, FILTROS_ESTADO, ha
 import { useProcesos } from '@/lib/useProcesos'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import EstadoJob, { Avance } from '@/components/procesos/EstadoJob'
 import BitacoraSheet from '@/components/procesos/BitacoraJob'
@@ -32,9 +32,11 @@ export default function ProcesosPage() {
 
   const cuenta = (s: string) => procesos?.filter(p => p.status === s).length ?? 0
   const hayActivos = procesos?.some(p => esActivo(p.status)) ?? false
-  const itemsTenant: Record<string, string> = { todos: 'Todos los tenants' }
-  for (const t of tenants) itemsTenant[t.id] = t.name
-  const itemsEstado = Object.fromEntries(Object.entries(FILTROS_ESTADO).map(([k, v]) => [k, v.etiqueta]))
+  const opcionesTenant = [
+    { value: 'todos', label: 'Todos los tenants' },
+    ...tenants.map(t => ({ value: t.id, label: t.name })),
+  ]
+  const opcionesEstado = Object.entries(FILTROS_ESTADO).map(([k, v]) => ({ value: k, label: v.etiqueta }))
 
   return (
     <div className="space-y-4">
@@ -48,22 +50,21 @@ export default function ProcesosPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-64 space-y-1">
           <Label>Tenant</Label>
-          <Select value={tenantId} onValueChange={v => setTenantId(v ?? 'todos')} items={itemsTenant}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los tenants</SelectItem>
-              {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Selector
+            items={opcionesTenant}
+            value={tenantId}
+            onValueChange={v => setTenantId(v || 'todos')}
+            className="w-full"
+          />
         </div>
         <div className="w-48 space-y-1">
           <Label>Estado</Label>
-          <Select value={filtroEstado} onValueChange={v => setFiltroEstado(v ?? 'todos')} items={itemsEstado}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.entries(FILTROS_ESTADO).map(([k, v]) => <SelectItem key={k} value={k}>{v.etiqueta}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Selector
+            items={opcionesEstado}
+            value={filtroEstado}
+            onValueChange={v => setFiltroEstado(v || 'todos')}
+            className="w-full"
+          />
         </div>
         <Button variant="outline" onClick={recargar}>Actualizar</Button>
         <p className="pb-2 text-xs text-muted-foreground">

@@ -4,7 +4,7 @@ import {
   type Tenant, type Rancho, type Parcela, type LayerSummary, type Measurement,
 } from '@/lib/api'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import SerieMensual from './SerieMensual'
 
@@ -21,7 +21,7 @@ import SerieMensual from './SerieMensual'
  * sería una tormenta de pedidos para una pantalla que se mira de a uno.
  */
 
-const INDICES = ['ndvi', 'evi', 'ndre', 'ndmi'] as const
+const OPCIONES_INDICE = ['ndvi', 'evi', 'ndre', 'ndmi'].map(i => ({ value: i, label: i.toUpperCase() }))
 
 interface Inventario {
   ranchos: Rancho[]
@@ -59,8 +59,8 @@ export default function DatosPorTenant() {
   // Limpiar al cambiar de tenant es cosa del handler, no de un efecto: un `setState`
   // síncrono adentro de un efecto encadena renders (`set-state-in-effect`, la misma regla
   // que cuida el diálogo de geometría).
-  function elegirTenant(v: string | null) {
-    setTenantId(v ?? '')
+  function elegirTenant(v: string) {
+    setTenantId(v)
     setInventario(null)
     setParcelaId('')
     setSerie(null)
@@ -123,12 +123,12 @@ export default function DatosPorTenant() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1 min-w-56">
           <Label>Tenant</Label>
-          <Select value={tenantId} onValueChange={elegirTenant}>
-            <SelectTrigger><SelectValue placeholder="Elegí un tenant" /></SelectTrigger>
-            <SelectContent>
-              {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Selector
+            items={tenants.map(t => ({ value: t.id, label: t.name }))}
+            value={tenantId}
+            onValueChange={elegirTenant}
+            placeholder="Elegí un tenant"
+          />
         </div>
         {cargando && <span className="text-sm text-muted-foreground">Cargando…</span>}
       </div>
@@ -189,23 +189,21 @@ export default function DatosPorTenant() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1 min-w-56">
               <Label>Parcela</Label>
-              <Select value={parcelaId} onValueChange={v => { setParcelaId(v ?? ''); setSerie(null) }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={parcelas.length ? 'Elegí una parcela' : 'Este tenant no tiene parcelas'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Selector
+                items={parcelas.map(p => ({ value: p.id, label: p.name }))}
+                value={parcelaId}
+                onValueChange={v => { setParcelaId(v); setSerie(null) }}
+                placeholder={parcelas.length ? 'Elegí una parcela' : 'Este tenant no tiene parcelas'}
+                vacio="Este tenant no tiene parcelas"
+              />
             </div>
             <div className="space-y-1 min-w-32">
               <Label>Índice</Label>
-              <Select value={indice} onValueChange={v => { setIndice(v ?? 'ndvi'); setSerie(null) }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {INDICES.map(i => <SelectItem key={i} value={i}>{i.toUpperCase()}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Selector
+                items={OPCIONES_INDICE}
+                value={indice}
+                onValueChange={v => { setIndice(v || 'ndvi'); setSerie(null) }}
+              />
             </div>
           </div>
 

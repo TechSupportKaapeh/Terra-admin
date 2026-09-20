@@ -3,11 +3,11 @@ import { getTenantMembers, addMember, removeMember, changeMemberRole, suspendMem
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-const MEMBER_ROLES = ['Admin', 'Member']
+const MEMBER_ROLES = [{ value: 'Admin', label: 'Admin' }, { value: 'Member', label: 'Member' }]
 
 interface Props {
   tenantId: string
@@ -91,28 +91,23 @@ export default function TenantMembersDialog({ tenantId, tenantName, users, open,
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
             <Label className="text-xs">Agregar usuario</Label>
-            {/* `items`: sin él, Base UI muestra el value elegido, que es el id del usuario. */}
-            <Select
-              value={addUserId || null}
-              onValueChange={v => setAddUserId(v ?? '')}
-              items={Object.fromEntries(candidates.map(u => [u.id, `${u.name} ${u.lastName} — ${u.email}`]))}
-            >
-              <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona un usuario" /></SelectTrigger>
-              <SelectContent>
-                {candidates.length === 0
-                  ? <div className="px-2 py-1.5 text-sm text-muted-foreground">No hay usuarios disponibles</div>
-                  : candidates.map(u => <SelectItem key={u.id} value={u.id}>{u.name} {u.lastName} — {u.email}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Selector
+              items={candidates.map(u => ({ value: u.id, label: `${u.name} ${u.lastName} — ${u.email}` }))}
+              value={addUserId}
+              onValueChange={setAddUserId}
+              placeholder="Selecciona un usuario"
+              vacio="No hay usuarios disponibles"
+              className="h-9"
+            />
           </div>
           <div className="space-y-1 w-32">
             <Label className="text-xs">Rol</Label>
-            <Select value={addRole} onValueChange={v => setAddRole(v ?? 'Member')}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {MEMBER_ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Selector
+              items={MEMBER_ROLES}
+              value={addRole}
+              onValueChange={v => setAddRole(v || 'Member')}
+              className="h-9"
+            />
           </div>
           <Button className="h-9" onClick={handleAdd} disabled={!addUserId}>Agregar</Button>
         </div>
@@ -134,14 +129,14 @@ export default function TenantMembersDialog({ tenantId, tenantName, users, open,
                   <div className="text-xs text-muted-foreground">{m.email}</div>
                 </TableCell>
                 <TableCell>
-                  {/* Guard de null (Base UI) + evita un PATCH si el rol no cambió
-                      (el dominio rechaza ChangeRole al mismo rol con DomainException). */}
-                  <Select value={m.role} onValueChange={v => { if (v && v !== m.role) run(changeMemberRole(tenantId, m.userId, v)) }}>
-                    <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {MEMBER_ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  {/* Evita un PATCH si el rol no cambió: el dominio rechaza ChangeRole
+                      al mismo rol con DomainException. */}
+                  <Selector
+                    items={MEMBER_ROLES}
+                    value={m.role}
+                    onValueChange={v => { if (v && v !== m.role) run(changeMemberRole(tenantId, m.userId, v)) }}
+                    className="h-8 w-[120px]"
+                  />
                 </TableCell>
                 <TableCell><Badge variant={statusVariant(m.status)}>{m.status}</Badge></TableCell>
                 <TableCell className="flex justify-end gap-1">

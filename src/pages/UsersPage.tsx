@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const ROLES = ['Client', 'TerraAdmin', 'TerraSupport']
+const OPCIONES_ROL = ROLES.map(r => ({ value: r, label: r }))
 const PRIVILEGED_ROLES = ['TerraAdmin', 'TerraSupport']
 
 export default function UsersPage() {
@@ -71,9 +72,9 @@ export default function UsersPage() {
   // Cambia el rol global de un usuario desde el Select de la tabla. No hace nada si el
   // rol no cambió. Para roles privilegiados exige confirmación explícita [I-1]. El
   // backend valida la regla de "último admin" [N-3] y la autorización real.
-  // `newRole` es `string | null` porque Base UI emite null al limpiar la selección;
-  // aquí null se ignora (no hay caso de "sin rol").
-  async function handleChangeRole(user: User, newRole: string | null) {
+  // `newRole` puede venir vacío porque `Selector` usa '' para "nada elegido"; acá se
+  // ignora (no hay caso de "sin rol").
+  async function handleChangeRole(user: User, newRole: string) {
     if (!newRole || newRole === user.globalRole) return
     // [I-1] Elevar a un rol privilegiado exige confirmación explícita.
     if (PRIVILEGED_ROLES.includes(newRole) &&
@@ -122,12 +123,11 @@ export default function UsersPage() {
               </div>
               <div className="space-y-1">
                 <Label>Rol</Label>
-                <Select value={form.globalRole} onValueChange={v => setForm(f => ({ ...f, globalRole: v ?? f.globalRole }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  items={OPCIONES_ROL}
+                  value={form.globalRole}
+                  onValueChange={v => setForm(f => ({ ...f, globalRole: v || f.globalRole }))}
+                />
               </div>
               {error && <p className="text-destructive text-sm">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
@@ -160,12 +160,12 @@ export default function UsersPage() {
               <TableCell>{u.name} {u.lastName}</TableCell>
               <TableCell>{u.email}</TableCell>
               <TableCell>
-                <Select value={u.globalRole} onValueChange={v => handleChangeRole(u, v)}>
-                  <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  items={OPCIONES_ROL}
+                  value={u.globalRole}
+                  onValueChange={v => handleChangeRole(u, v)}
+                  className="h-8 w-[150px]"
+                />
               </TableCell>
               <TableCell>
                 <Badge variant={u.isActive ? 'default' : 'secondary'}>
