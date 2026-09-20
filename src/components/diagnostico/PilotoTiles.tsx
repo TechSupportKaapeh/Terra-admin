@@ -7,6 +7,7 @@ import {
   type Tenant, type LayerSummary, type LayerDetail,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { escalaDe } from '@/lib/indices'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -264,9 +265,21 @@ export default function PilotoTiles() {
     esperaDelSlider.current = window.setTimeout(() => void elegirCapa(lista[j].id), 250)
   }
 
-  /** Al elegir métrica se salta a la fecha más nueva: es la que se quiere ver primero. */
+  /**
+   * Al elegir métrica: se salta a la fecha más nueva y **se carga la escala de ese índice**.
+   *
+   * Los cuatro no miden lo mismo ni viven en el mismo rango, y pintarlos con la escala del
+   * NDVI da mapas que parecen comparables y no lo son (`src/lib/indices.ts`). Los controles
+   * de abajo siguen: esto es de dónde arranca.
+   */
   function elegirMetrica(indice: string) {
     setMetrica(indice)
+
+    const escala = escalaDe(indice)
+    setRmin(String(escala.rango[0]))
+    setRmax(String(escala.rango[1]))
+    setCmap(escala.paleta)
+
     const lista = fechasDe(capas, entidad, indice)
     irAFecha(lista.length - 1, lista)
   }
@@ -616,9 +629,22 @@ export default function PilotoTiles() {
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="w-56">
-            <div className="h-3 rounded-sm border" style={{ background: `linear-gradient(90deg,${PALETAS[cmap]})` }} />
+            <div className="relative h-3 rounded-sm border" style={{ background: `linear-gradient(90deg,${PALETAS[cmap]})` }}>
+              {/* El centro, cuando significa algo: en NDMI el 0 separa seco de húmedo. Sin
+                  la marca, una rampa divergente se lee como si fuera de magnitud. */}
+              {metrica && rangoValido && escalaDe(metrica).centro !== undefined
+                && escalaDe(metrica).centro! > min && escalaDe(metrica).centro! < max && (
+                <span
+                  className="absolute top-0 h-3 w-px bg-foreground"
+                  style={{ left: `${((escalaDe(metrica).centro! - min) / (max - min)) * 100}%` }}
+                  title={`${escalaDe(metrica).centro}`}
+                />
+              )}
+            </div>
             <div className="mt-0.5 flex justify-between font-mono text-xs text-muted-foreground tabular-nums">
-              <span>{rangoValido ? min : '—'}</span><span>NDVI · {cmap}</span><span>{rangoValido ? max : '—'}</span>
+              <span>{rangoValido ? min : '—'}</span>
+              <span>{metrica ? `${metrica.toUpperCase()} · ${escalaDe(metrica).que}` : 'sin métrica'}</span>
+              <span>{rangoValido ? max : '—'}</span>
             </div>
           </div>
           <p className="text-sm"><span className="text-muted-foreground">Click en el mapa: </span>{valor ?? 'el valor del píxel sale de /cog/point.'}</p>

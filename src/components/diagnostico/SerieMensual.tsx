@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import type { Measurement } from '@/lib/api'
+import { escalaDe } from '@/lib/indices'
 
 /**
  * La serie mensual de una parcela: la mediana, con la banda p10–p90 detrás.
@@ -115,7 +116,7 @@ export default function SerieMensual({ filas, indice }: Props) {
       <figcaption className="text-sm">
         <span className="font-medium">{indice.toUpperCase()} mensual</span>{' '}
         <span className="text-muted-foreground">
-          · mediana con banda p10–p90 · {puntos.length} meses ·{' '}
+          · {escalaDe(indice).que} · mediana con banda p10–p90 · {puntos.length} meses ·{' '}
           {puntos.filter(x => x.valor === null).length} sin dato
         </span>
       </figcaption>

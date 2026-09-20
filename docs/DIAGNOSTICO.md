@@ -47,6 +47,35 @@ Tres cosas que no son obvias:
   24 capas de NDVI; desde que el mapa es de los cuatro índices (worker `DECISIONS #58`) son
   96 por rancho y por alta, y con 50 el catálogo habría mostrado una parte sin decirlo.
 
+### Cada índice con su escala
+
+El COG guarda el índice **crudo en float32** —números, no colores—, y la plantilla de tiles
+sale de Geocore sin `rescale` ni `colormap_name`: los agrega el front. Al elegir la métrica,
+el piloto carga la escala de ese índice desde `src/lib/indices.ts`:
+
+| Índice | Qué mide | Rango | Paleta |
+|---|---|---|---|
+| NDVI | vegetación | 0 … 0,8 | RdYlGn |
+| EVI | vegetación densa | 0 … 0,8 | RdYlGn |
+| NDRE | clorofila | 0 … 0,5 | Greens |
+| NDMI | humedad | −0,4 … 0,4 | RdBu, **centrada en 0** |
+
+**Por qué no alcanza con una sola escala:** un NDMI de 0,2 es húmedo y un NDVI de 0,2 es
+casi suelo desnudo. Pintados con el mismo rango dan dos mapas que parecen comparables y no
+lo son.
+
+**Por qué los rangos arrancan en 0** (salvo NDMI): lo negativo es agua o nube, y gastar
+media rampa ahí aplana justo donde están los cultivos. **Y por qué NDRE llega sólo a 0,5**:
+se mueve en un rango más chico que el NDVI; con 0 a 0,8 casi no se ve nada.
+
+**NDMI es el único con un centro con significado** —bajo cero seco, sobre cero húmedo—, así
+que su leyenda lleva una marca en el 0. Sin ella, una rampa divergente se lee como si fuera
+de magnitud.
+
+Las paletas son la convención agronómica (decisión del usuario, 2026-09-20): es lo que quien
+mira ya sabe leer. Los controles de `rescale` y paleta siguen estando: la tabla es de dónde
+arranca, no una jaula.
+
 ## Datos (2026-09-20)
 
 Se carga **de a un tenant**: su inventario son 2 + N pedidos —ranchos, capas, y las
