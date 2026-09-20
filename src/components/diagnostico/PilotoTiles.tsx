@@ -23,13 +23,19 @@ import Estado from './Estado'
  * de clientes, en el mismo orden:
  *
  *   1. GET /api/layers/{id}   Geocore da la plantilla: servidor + ?url=s3://…
- *   2. GET /api/maps/token    Geocore firma un token de mapa de una hora
+ *   2. GET /api/maps/token    Geocore firma un token de mapa de una hora, para el
+ *                             tenant elegido acá arriba (M.8.1)
  *   3. /cog/info, /statistics TiTiler dice qué hay en el COG
  *   4. /cog/tiles/…           la plantilla + rescale + colormap_name + token
  *
  * Lo que la plantilla de Geocore NO trae y agrega el front: rescale y
  * colormap_name (el COG guarda NDVI crudo en float32, números y no colores) y
  * el token. Ver tileserver-titiler/docs/viaje-de-un-tile.html.
+ *
+ * Desde M.8.1 esta pantalla es además donde se verifica el aislamiento entre
+ * tenants: el token lleva `tenant_id` y el tileserver contesta 403 a cualquier COG
+ * que no cuelgue de `tenants/{ese tenant}/`. Elegir un tenant y pedir la capa de
+ * otro es la prueba, y `explicar()` traduce ese 403.
  */
 
 interface CogInfo { dtype: string; count: number; bounds: [number, number, number, number]; minzoom: number; maxzoom: number; width: number; height: number }
@@ -74,7 +80,15 @@ function explicar(status: number, detalle: string): string {
       if (d.includes('expir')) return 'El token venció. Renovalo y se vuelve a pintar solo.'
       if (d.includes('falta')) return 'La URL no lleva token.'
       return 'El token no valida: MAP_TOKEN_SECRET del tileserver no coincide con GeoData__MapTokenSecret de Geocore.'
-    case 403: return 'El token está firmado pero no es de tipo map-access.'
+    case 403:
+      // Desde M.8.1 el 403 tiene dos causas y hay que distinguirlas, porque una es
+      // configuración y la otra es el aislamiento entre tenants funcionando.
+      if (d.includes('tenant')) {
+        return 'El COG es de otro tenant: el token lleva el tenant adentro y el tileserver '
+          + 'sólo sirve lo que cuelga de tenants/{ese tenant}/. Si la capa es vieja '
+          + '(de antes del pipeline mensual), su key no tiene tenant y ya no se puede servir.'
+      }
+      return 'El token está firmado pero no es de tipo map-access.'
     case 503: return 'Al tileserver le falta MAP_TOKEN_SECRET.'
     case 500: return 'Error del lado del servidor, sin motivo en la respuesta a propósito. Lo más común: el archivo no existe en esa ruta (en TiTiler 0.18 eso es 500, no 404).'
     default: return 'Mirá el log del tileserver: el reporte de arranque dice si MinIO conecta.'
@@ -151,7 +165,7 @@ export default function PilotoTiles() {
   const [capa, setCapa] = useState<LayerDetail | null>(null)
   // El token de mapa, con su renovación y su cuenta regresiva, compartido con el mapa del
   // rancho (M.7.4): las dos pantallas tienen que renovarlo con el mismo margen.
-  const { token, restante, tokenNuevo, asegurarToken } = useMapToken()
+  const { token, restante, tokenNuevo, asegurarToken } = useMapToken(tenantId)
   const [info, setInfo] = useState<CogInfo | null>(null)
   const [stats, setStats] = useState<BandStats | null>(null)
   const [rmin, setRmin] = useState('-1')
@@ -447,7 +461,12 @@ export default function PilotoTiles() {
           <span className="tabular-nums text-muted-foreground">
             {restante === null ? '' : restante > 0 ? `${Math.floor(restante / 60)}:${String(restante % 60).padStart(2, '0')}` : 'vencido'}
           </span>
-          {capa && <Button variant="outline" size="sm" onClick={() => void tokenNuevo()}>Renovar</Button>}
+          {capa && (
+            <Button variant="outline" size="sm"
+              onClick={() => { tokenNuevo().catch(e => setAviso(describeError(e))) }}>
+              Renovar
+            </Button>
+          )}
         </div>
 
         <div className="space-y-2">

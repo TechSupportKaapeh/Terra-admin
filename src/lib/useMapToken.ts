@@ -1,45 +1,49 @@
 import { useEffect, useRef, useState } from 'react'
 import { describeError, getMapToken } from '@/lib/api'
+import {
+  hayQueRenovar,
+  NINGUNO,
+  sePuedeReusar,
+  tokenPara,
+  vencimiento,
+  type Emitido,
+} from '@/lib/mapToken'
 
 /**
- * El token de mapa: uno solo por pantalla, renovado antes de que venza.
+ * El token de mapa de un tenant: uno solo por pantalla, renovado antes de que venza.
  *
  * TiTiler lo recibe como `?token=` en cada tile (no en una cabecera: un `<img>` no manda
  * cabeceras), Geocore lo firma por una hora, y quien pinta un mapa lo necesita **antes**
  * de armar la URL de los tiles.
  *
- * Vive en `lib/` porque lo usan el catálogo del Diagnóstico y el mapa del rancho, y las
- * dos cosas que sabe tienen que valer igual en los dos:
+ * **Desde M.8.1 el token es de un tenant y sólo de ese tenant** (Geocore `DECISIONS #42`):
+ * lleva `tenant_id` adentro y el tileserver rechaza con 403 cualquier COG que no cuelgue
+ * de `tenants/{ese tenant}/`. De ahí lo que cambia acá: `tenantId` es obligatorio y viaja
+ * como `X-Tenant-ID` al pedirlo, y al cambiar de tenant el token anterior deja de contar.
  *
- * - **se renueva con 5 minutos de margen, no al vencer.** Un token que vence en medio de
- *   un paneo deja el mapa lleno de 401 sin ningún error visible;
- * - **la cuenta regresiva se lee del reloj fuera del render** (un intervalo de un
- *   segundo), porque React no permite leer la hora mientras dibuja.
+ * Este archivo es sólo el estado y los efectos; las reglas —cuál token vale, cuándo se
+ * renueva y cuándo se reusa— están en [`mapToken.ts`](./mapToken.ts), que sí tiene tests.
+ *
+ * Vive en `lib/` porque lo usan el catálogo del Diagnóstico y el mapa del rancho, y lo
+ * que sabe tiene que valer igual en los dos: se renueva con margen —un token que vence en
+ * medio de un paneo deja el mapa lleno de 401 sin ningún error visible—, la cuenta
+ * regresiva se lee del reloj fuera del render, porque React no permite leer la hora
+ * mientras dibuja, y sin tenant elegido no se pide nada.
  */
 
-/** Del JWT sólo se lee `exp` para la cuenta regresiva. La firma la valida TiTiler. */
-function vencimiento(token: string): number | null {
-  try {
-    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return typeof p.exp === 'number' ? p.exp : null
-  } catch {
-    return null
-  }
-}
-
-/** Con menos de esto, el token se cambia por uno nuevo antes de pedir tiles. */
-const MARGEN_S = 300
-
 /**
+ * @param tenantId El tenant cuyos COG se van a pedir. Vacío = todavía no se eligió uno.
  * @param auto Pedir el token solo, y renovarlo cuando le queda poco. Lo usa quien pinta un
  * mapa apenas se abre; quien lo pide como parte de otra acción usa `asegurarToken`.
  */
-export function useMapToken(auto = false) {
-  const [token, setToken] = useState('')
-  const [exp, setExp] = useState<number | null>(null)
+export function useMapToken(tenantId: string, auto = false) {
+  const [emitido, setEmitido] = useState<Emitido>(NINGUNO)
   const [ahora, setAhora] = useState(0)
   const [error, setError] = useState('')
   const pidiendo = useRef(false)
+
+  const token = tokenPara(emitido, tenantId)
+  const exp = token ? emitido.exp : null
 
   useEffect(() => {
     if (!exp) return
@@ -51,18 +55,21 @@ export function useMapToken(auto = false) {
   const restante = exp && ahora ? Math.round(exp - ahora / 1000) : null
 
   useEffect(() => {
-    if (!auto || pidiendo.current) return
-    if (token && (restante === null || restante > MARGEN_S)) return
+    if (!auto || !tenantId || pidiendo.current) return
+    if (!hayQueRenovar(token, restante)) return
 
     // El efecto se vuelve a correr con cada tic del reloj, así que sin el cerrojo un
     // token por vencer dispararía un pedido por segundo hasta que llegara el primero.
     pidiendo.current = true
     let vivo = true
-    getMapToken()
+    const pedidoPara = tenantId
+    getMapToken(pedidoPara)
       .then(({ token: t }) => {
         if (!vivo) return
-        setToken(t)
-        setExp(vencimiento(t))
+        // Se guarda con el tenant para el que se pidió, no con el elegido ahora: si el
+        // usuario cambió de tenant mientras el pedido viajaba, lo que llega es el token
+        // del anterior, `tokenPara` lo descarta solo y este efecto vuelve a correr.
+        setEmitido({ tenantId: pedidoPara, token: t, exp: vencimiento(t) })
         setError('')
       })
       .catch(err => {
@@ -72,24 +79,18 @@ export function useMapToken(auto = false) {
       .finally(() => { pidiendo.current = false })
 
     return () => { vivo = false }
-  }, [auto, token, restante])
+  }, [auto, tenantId, token, restante])
 
   async function tokenNuevo(): Promise<string> {
-    const { token: t } = await getMapToken()
-    setToken(t)
-    setExp(vencimiento(t))
+    if (!tenantId) throw new Error('Elegí un tenant antes de pedir el token de mapa.')
+    const { token: t } = await getMapToken(tenantId)
+    setEmitido({ tenantId, token: t, exp: vencimiento(t) })
     return t
   }
 
-  /**
-   * El token a usar ahora: el que hay si le queda margen, o uno nuevo.
-   *
-   * `restante` tiene a lo sumo un segundo de atraso; antes del primer tic es null y se
-   * pide uno nuevo, que no cuesta nada.
-   */
+  /** El token a usar ahora: el que hay si le queda margen, o uno nuevo. */
   async function asegurarToken(): Promise<string> {
-    if (token && restante !== null && restante > MARGEN_S) return token
-    return tokenNuevo()
+    return sePuedeReusar(token, restante) ? token : tokenNuevo()
   }
 
   return { token, restante, error, tokenNuevo, asegurarToken }

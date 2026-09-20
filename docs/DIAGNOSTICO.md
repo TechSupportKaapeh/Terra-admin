@@ -132,7 +132,28 @@ Esta solapa quedó con lo que no tiene otro lugar: **el inventario**.
 
 - **Cruzar los `.tif` del bucket con las filas de `layers`**: objetos sin fila y filas sin
   objeto. Hoy el inventario cuenta lo que dice la base, y confía en que el bucket coincida.
-- **Después de M.8.1, revisar esta pestaña entera.** Cuando el token de mapa lleve el
-  tenant y el tileserver exija ese prefijo en la key, Tiles pasa a ser la pantalla donde se
-  verifica ese 403, y varias de sus 672 líneas —el rescale a mano, la paleta— puede que
-  convenga podarlas en vez de mantenerlas.
+- **Podar Tiles.** Son 672 líneas, el archivo más grande del panel, y parte de eso —el
+  rescale a mano, la paleta— puede que convenga sacarlo en vez de mantenerlo ahora que
+  cada índice tiene su escala. Lo que **sí** se queda es lo de abajo.
+
+## Tiles, después de M.8.1 (2026-09-20)
+
+**El token de mapa es de un tenant.** Lo pide con el tenant elegido en el primer
+desplegable de la cascada (`X-Tenant-ID`), Geocore lo firma con `tenant_id` adentro y el
+tileserver contesta **403** a cualquier COG que no cuelgue de `tenants/{ese tenant}/`.
+
+Eso le da a esta pestaña un trabajo que antes no tenía: **es donde se verifica el
+aislamiento entre tenants**. Elegir un tenant, pedir la capa de otro, y ver el 403.
+
+Dos cosas que hay que saber para leer lo que muestra:
+
+- **Un 403 acá no siempre es una falla.** `explicar()` distingue las dos causas: el token
+  que no es de tipo `map-access` (configuración) y el COG de otro tenant (el aislamiento
+  funcionando).
+- **Las capas viejas ya no se pueden servir.** Las que se escribieron antes del pipeline
+  mensual tienen la key sin tenant (`parcelas/{id}/…`, `ranchos/{id}/…`), así que ningún
+  token las alcanza. Se borran junto con sus filas (👥): el detalle está en
+  `geocore/docs/DECISIONS.md #43`.
+- **Al cambiar de tenant, el token anterior deja de contar en el acto.** No se limpia con
+  un efecto: `tokenPara()` lo deriva, así que no existe el render en el que el token de A
+  se usaría contra los tiles de B.
