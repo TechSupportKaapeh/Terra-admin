@@ -107,6 +107,17 @@ export const getRanchos = (tenantId: string) =>
 export const createRancho = (data: CreateRanchoPayload, tenantId: string) =>
   request<Rancho>('/api/ranchos', { method: 'POST', body: JSON.stringify(data) }, tenantId)
 
+// Editar: el nombre y la geometría van por separado, como los expone Geocore. Cambiar la
+// geometría NO recalcula el histórico: lo que ya se calculó salió del polígono viejo, y para
+// rehacerlo está el reproceso (POST /api/admin/procesos/reprocesar).
+export const updateRanchoName = (id: string, name: string, tenantId: string) =>
+  request<void>(`/api/ranchos/${id}/name`, { method: 'PATCH', body: JSON.stringify({ name }) }, tenantId)
+
+// Puede fallar con 422 PARCELAS_FUERA_DEL_RANCHO: achicar un rancho no puede dejar afuera a
+// sus parcelas activas. El mensaje nombra cuáles.
+export const updateRanchoGeometry = (id: string, coordinates: Coordinate[], fuenteGeom: string, tenantId: string) =>
+  request<void>(`/api/ranchos/${id}/geometry`, { method: 'PATCH', body: JSON.stringify({ coordinates, fuenteGeom }) }, tenantId)
+
 export const deactivateRancho = (id: string, tenantId: string) =>
   request<void>(`/api/ranchos/${id}/deactivate`, { method: 'POST' }, tenantId)
 
@@ -119,6 +130,13 @@ export const getParcelas = (ranchoId: string, tenantId: string) =>
 
 export const createParcela = (data: CreateParcelaPayload, tenantId: string) =>
   request<Parcela>('/api/parcelas', { method: 'POST', body: JSON.stringify(data) }, tenantId)
+
+export const updateParcelaName = (id: string, name: string, tenantId: string) =>
+  request<void>(`/api/parcelas/${id}/name`, { method: 'PATCH', body: JSON.stringify({ name }) }, tenantId)
+
+// Puede fallar con 422 PARCELA_FUERA_DEL_RANCHO: la parcela tiene que caer dentro de su rancho.
+export const updateParcelaGeometry = (id: string, coordinates: Coordinate[], fuenteGeom: string, tenantId: string) =>
+  request<void>(`/api/parcelas/${id}/geometry`, { method: 'PATCH', body: JSON.stringify({ coordinates, fuenteGeom }) }, tenantId)
 
 export const deactivateParcela = (id: string, tenantId: string) =>
   request<void>(`/api/parcelas/${id}/deactivate`, { method: 'POST' }, tenantId)
