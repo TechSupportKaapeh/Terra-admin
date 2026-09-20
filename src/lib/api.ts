@@ -115,16 +115,17 @@ export const getRanchos = (tenantId: string) =>
 export const createRancho = (data: CreateRanchoPayload, tenantId: string) =>
   request<Rancho>('/api/ranchos', { method: 'POST', body: JSON.stringify(data) }, tenantId)
 
-// Editar: el nombre y la geometría van por separado, como los expone Geocore. Cambiar la
-// geometría NO recalcula el histórico: lo que ya se calculó salió del polígono viejo, y para
-// rehacerlo está el reproceso (POST /api/admin/procesos/reprocesar).
+// Editar: el nombre y la geometría van por separado, como los expone Geocore.
+//
+// El PATCH de geometría **borra lo que se calculó con el polígono viejo y encola el reproceso**
+// (Geocore DECISIONS #34), y devuelve ese resumen. Antes era 204.
 export const updateRanchoName = (id: string, name: string, tenantId: string) =>
   request<void>(`/api/ranchos/${id}/name`, { method: 'PATCH', body: JSON.stringify({ name }) }, tenantId)
 
 // Puede fallar con 422 PARCELAS_FUERA_DEL_RANCHO: achicar un rancho no puede dejar afuera a
 // sus parcelas activas. El mensaje nombra cuáles.
 export const updateRanchoGeometry = (id: string, coordinates: Coordinate[], fuenteGeom: string, tenantId: string) =>
-  request<void>(`/api/ranchos/${id}/geometry`, { method: 'PATCH', body: JSON.stringify({ coordinates, fuenteGeom }) }, tenantId)
+  request<DatosRehechos>(`/api/ranchos/${id}/geometry`, { method: 'PATCH', body: JSON.stringify({ coordinates, fuenteGeom }) }, tenantId)
 
 export const deactivateRancho = (id: string, tenantId: string) =>
   request<void>(`/api/ranchos/${id}/deactivate`, { method: 'POST' }, tenantId)
@@ -144,7 +145,7 @@ export const updateParcelaName = (id: string, name: string, tenantId: string) =>
 
 // Puede fallar con 422 PARCELA_FUERA_DEL_RANCHO: la parcela tiene que caer dentro de su rancho.
 export const updateParcelaGeometry = (id: string, coordinates: Coordinate[], fuenteGeom: string, tenantId: string) =>
-  request<void>(`/api/parcelas/${id}/geometry`, { method: 'PATCH', body: JSON.stringify({ coordinates, fuenteGeom }) }, tenantId)
+  request<DatosRehechos>(`/api/parcelas/${id}/geometry`, { method: 'PATCH', body: JSON.stringify({ coordinates, fuenteGeom }) }, tenantId)
 
 export const deactivateParcela = (id: string, tenantId: string) =>
   request<void>(`/api/parcelas/${id}/deactivate`, { method: 'POST' }, tenantId)
@@ -174,6 +175,17 @@ export const createUserFull = async (data: CreateUserFullPayload) => {
 // Types
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number }
 export interface Coordinate { lat: number; lng: number }
+
+/**
+ * Qué pasó con los datos calculados con la geometría vieja (Geocore DECISIONS #34).
+ * `jobDeReproceso` null + `aviso` = se borraron pero nadie los va a recalcular solo.
+ */
+export interface DatosRehechos {
+  medicionesBorradas: number
+  capasBorradas: number
+  jobDeReproceso: string | null
+  aviso: string | null
+}
 export interface User { id: string; authId: string; email: string; name: string; lastName: string; globalRole: string; isActive: boolean; createdAt: string }
 export interface Tenant { id: string; name: string; slug: string; status: string; timezone: string; defaultLanguage: string; maxUsers: number; memberCount: number; country?: string | null; address?: string | null; phoneNumber?: string | null; email?: string | null; createdAt: string; updatedAt?: string | null }
 export interface Member { userId: string; name: string; lastName: string; email: string; role: string; status: string; createdAt: string; updatedAt?: string | null }
