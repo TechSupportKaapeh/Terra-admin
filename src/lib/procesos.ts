@@ -128,3 +128,24 @@ export function datosDeEvento(e: EventoProceso): string[] {
   if (typeof d.ms === 'number') datos.push(duracion(d.ms))
   return datos
 }
+
+/**
+ * El último proceso de cada rancho y de cada parcela, por id.
+ *
+ * La lista viene de más nuevo a más viejo, así que el primero que aparece de cada
+ * entidad es el último: por eso se queda con el primero y no compara fechas. Un job de
+ * parcela lleva también el `ranchoId` de su rancho, y contarlo como proceso del rancho
+ * mostraría el de una parcela en la fila del rancho: por eso el `else`.
+ */
+export function ultimoPorEntidad(procesos: Proceso[] | null) {
+  const porParcela = new Map<string, Proceso>()
+  const porRancho = new Map<string, Proceso>()
+  for (const j of procesos ?? []) {
+    if (j.parcelaId) {
+      if (!porParcela.has(j.parcelaId)) porParcela.set(j.parcelaId, j)
+    } else if (j.ranchoId && !porRancho.has(j.ranchoId)) {
+      porRancho.set(j.ranchoId, j)
+    }
+  }
+  return { porParcela, porRancho }
+}
