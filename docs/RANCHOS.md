@@ -57,6 +57,21 @@ Distingue tres cosas que no son lo mismo:
 El índice va en la clave del pedido: cambiarlo es otro pedido, y la respuesta del anterior
 que llegue tarde no se pinta como si fuera la nueva.
 
+### Por qué el gráfico está dibujado así
+
+- **El eje vertical sale de los datos, no del rango del índice.** Un NDVI que se mueve entre
+  0,30 y 0,60 dibujado en \[-1, 1\] es una línea plana que no dice nada. La contra: **dos
+  gráficos no se comparan a ojo**, porque cada uno tiene su escala. El mapa sí usa escala
+  fija por índice, justamente para lo contrario.
+- **El punto hueco es una segunda codificación además del color**: se lee sin distinguir
+  colores y sobrevive a una impresión en blanco y negro.
+- **La tabla de números, plegada debajo, no es un extra**: la banda p10–p90 es un relleno de
+  bajo contraste, y la tabla es lo que la hace legible sin depender del color.
+- **Colores**: un solo tono azul, con la banda un paso más clara (`#b7d3f6` en claro,
+  `#184f95` en oscuro) y la línea en el paso fuerte. Es una rampa secuencial de un tono, que
+  es lo que corresponde a una sola serie.
+- **SVG a mano, sin librería de gráficos** (decisión del usuario, confirmada al abrir M.7.3).
+
 ## El mapa del rancho (M.7.4)
 
 "Mapa" en la fila de un rancho abre un panel lateral con **un mapa por mes y por índice**.
