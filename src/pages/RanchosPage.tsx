@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getTenants, getRanchos, createRancho, getParcelas, createParcela, deactivateRancho, activateRancho, deactivateParcela, activateParcela, describeError, type Tenant, type Rancho, type Parcela, type Proceso } from '@/lib/api'
+import { getTenants, getRanchos, createRancho, getParcelas, createParcela, deactivateRancho, activateRancho, deactivateParcela, activateParcela, updateRanchoName, updateRanchoGeometry, updateParcelaName, updateParcelaGeometry, describeError, type Tenant, type Rancho, type Parcela, type Proceso } from '@/lib/api'
 import { useProcesos } from '@/lib/useProcesos'
 import EstadoJob from '@/components/procesos/EstadoJob'
 import BitacoraSheet from '@/components/procesos/BitacoraJob'
@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import GeometryInput, { type Coord } from '@/components/GeometryInput'
 import GeometryView, { type Shape } from '@/components/GeometryView'
+import EditarEntidadDialog from '@/components/EditarEntidadDialog'
 
 const emptyMeta = { municipio: '', estado: '', region: '', altitudM: '' }
 
@@ -79,6 +80,9 @@ export default function RanchosPage() {
   // por tenant, que se refresca sola mientras haya alguno en curso. La lista viene
   // de más nuevo a más viejo, así que el primero que aparece de cada uno es el último.
   const [jobAbierto, setJobAbierto] = useState<string | null>(null)
+  // Qué se está editando: null = el diálogo está cerrado (M.7, el editor completo, es otra cosa).
+  const [ranchoEditando, setRanchoEditando] = useState<Rancho | null>(null)
+  const [parcelaEditando, setParcelaEditando] = useState<Parcela | null>(null)
   const { procesos, recargar: recargarProcesos } = useProcesos(tenantId ? { tenantId, limit: 200 } : null)
   const ultimoPorParcela = new Map<string, Proceso>()
   const ultimoPorRancho = new Map<string, Proceso>()
@@ -270,7 +274,14 @@ export default function RanchosPage() {
                     <TableCell>{r.fuenteGeom}</TableCell>
                     <TableCell><Badge variant={r.isActive ? 'default' : 'secondary'}>{r.isActive ? 'Activo' : 'Inactivo'}</Badge></TableCell>
                     <TableCell><CeldaProceso proceso={ultimoPorRancho.get(r.id)} onAbrir={setJobAbierto} /></TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={e => { e.stopPropagation(); setRanchoEditando(r) }}
+                      >
+                        Editar
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -353,7 +364,10 @@ export default function RanchosPage() {
                     <TableCell className="text-muted-foreground">{p.municipio ?? '—'}</TableCell>
                     <TableCell><Badge variant={p.isActive ? 'default' : 'secondary'}>{p.isActive ? 'Activa' : 'Inactiva'}</Badge></TableCell>
                     <TableCell><CeldaProceso proceso={ultimoPorParcela.get(p.id)} onAbrir={setJobAbierto} /></TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button variant="ghost" size="sm" onClick={() => setParcelaEditando(p)}>
+                        Editar
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => toggleParcela(p)}>
                         {p.isActive ? 'Desactivar' : 'Activar'}
                       </Button>
@@ -374,6 +388,26 @@ export default function RanchosPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      {ranchoEditando && <EditarEntidadDialog
+        key={ranchoEditando.id}
+        entidad={ranchoEditando}
+        que="rancho"
+        onGuardarNombre={n => updateRanchoName(ranchoEditando!.id, n, tenantId)}
+        onGuardarGeometria={(c, f) => updateRanchoGeometry(ranchoEditando!.id, c, f, tenantId)}
+        onGuardado={() => { loadRanchos(); loadParcelas() }}
+        onCerrar={() => setRanchoEditando(null)}
+      />}
+
+      {parcelaEditando && <EditarEntidadDialog
+        key={parcelaEditando.id}
+        entidad={parcelaEditando}
+        que="parcela"
+        onGuardarNombre={n => updateParcelaName(parcelaEditando!.id, n, tenantId)}
+        onGuardarGeometria={(c, f) => updateParcelaGeometry(parcelaEditando!.id, c, f, tenantId)}
+        onGuardado={loadParcelas}
+        onCerrar={() => setParcelaEditando(null)}
+      />}
 
       <BitacoraSheet jobId={jobAbierto} onClose={() => setJobAbierto(null)} />
     </div>
