@@ -3,14 +3,32 @@ import type { EventoProceso, Proceso } from '@/lib/api'
 /**
  * Vocabulario de los procesos del worker, en un solo lugar.
  *
- * Los `requestType` son contrato con Geocore: `SeguimientoDeProceso.cs` (altas de
- * parcela y rancho) y `ProcessingJobsController` (pedidos a demanda). Uno que no
- * esté acá se muestra tal cual: no se pierde, sólo queda sin traducir.
+ * Los `requestType` son contrato con Geocore, y salen de cuatro sitios:
+ * `SeguimientoDeProceso.cs` (las altas), `CierreMensual.cs` (el cierre de mes),
+ * `ParcelaService.cs` (los pedidos a demanda) y `ProcessingJobsController` (los de
+ * polígono libre). Uno que no esté acá se muestra tal cual: no se pierde, sólo
+ * queda sin traducir.
+ *
+ * **Están los once.** Faltaban los dos del cierre de mes, que corre en producción
+ * desde el 2026-09-19 y hoy produce la mayoría de los jobs: la pestaña mostraba
+ * `ParcelaMensual` crudo en casi todas las filas. Los cuatro a demanda tampoco
+ * estaban; sus jobs viejos siguen en la tabla aunque M.6.2 decida retirar los
+ * handlers, así que la etiqueta les sirve igual.
  */
 export const TIPOS: Record<string, string> = {
+  // Altas: los 24 meses de una entidad nueva (`SeguimientoDeProceso.cs`).
   ParcelaInicial: 'Histórico de parcela',
   RanchoInicial: 'Ráster de rancho',
+  // Cierre de mes: un solo mes, el que viene en `periodo` (`CierreMensual.cs`).
+  ParcelaMensual: 'Mes de parcela',
+  RanchoMensual: 'Mes de rancho',
+  // A demanda, sobre una parcela (`ParcelaService.cs`).
   heatmap: 'Mapa de calor',
+  timeseries: 'Serie temporal',
+  dates: 'Fechas disponibles',
+  stats: 'Estadísticas de una fecha',
+  export: 'Exportación',
+  // A demanda, sobre un polígono suelto (`ProcessingJobsController`).
   HeatmapOnTheFly: 'Mapa de calor · polígono libre',
   TimeSeriesOnTheFly: 'Serie · polígono libre',
 }
