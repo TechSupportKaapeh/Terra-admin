@@ -95,6 +95,12 @@ export default function RanchosPage() {
   const ranchoElegidoObj = ranchos?.find(r => r.id === ranchoElegido)
   const nombreRanchoElegido = ranchoElegidoObj?.name
 
+  // El rancho de la parcela que se está editando, para dibujarlo de fondo en el editor.
+  // Es el suyo y no el elegido en la pestaña: se edita desde la tabla, y podrían diferir.
+  const ranchoDeLaParcela = parcelaEditando
+    ? ranchos?.find(r => r.id === parcelaEditando.ranchoId)
+    : undefined
+
   // Geometría a dibujar: el rancho elegido (azul) + sus parcelas (verde).
   const formas: Shape[] = []
   if (ranchoElegidoObj) formas.push({ coordinates: ranchoElegidoObj.coordinates, color: '#2563eb', label: ranchoElegidoObj.name })
@@ -178,6 +184,7 @@ export default function RanchosPage() {
                     que="parcela"
                     etiquetaBoton={`Nueva parcela en ${nombreRanchoElegido}`}
                     onCrear={crearParcela}
+                    referencia={ranchoElegidoObj && { coordinates: ranchoElegidoObj.coordinates, nombre: ranchoElegidoObj.name }}
                   />
                 </div>
               )}
@@ -224,6 +231,7 @@ export default function RanchosPage() {
         onGuardarGeometria={(c, f) => updateParcelaGeometry(parcelaEditando.id, c, f, tenantId)}
         onGuardado={recargarParcelas}
         onCerrar={() => setParcelaEditando(null)}
+        referencia={ranchoDeLaParcela && { coordinates: ranchoDeLaParcela.coordinates, nombre: ranchoDeLaParcela.name }}
       />}
 
       <MapaRanchoSheet rancho={mapaDe} tenantId={tenantId} onClose={() => setMapaDe(null)} />

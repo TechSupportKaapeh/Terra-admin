@@ -25,3 +25,42 @@ export function cierra(coords: Coord[]): boolean {
   const ultimo = coords[coords.length - 1]
   return primero.lat === ultimo.lat && primero.lng === ultimo.lng
 }
+
+/**
+ * Si un punto cae adentro del anillo, por el método del rayo: se cuenta cuántos lados
+ * cruza una semirrecta horizontal que sale del punto. Impar = adentro.
+ *
+ * **Es una cuenta plana sobre lat/lng**, no geodésica. A la escala de un rancho —decenas
+ * de kilómetros— la diferencia no alcanza a cambiar de lado salvo pegado al borde, y para
+ * lo que sirve —avisar antes de mandar el POST— alcanza. **La autoridad es Geocore**, que
+ * valida con PostGIS y contesta 422 nombrando las parcelas que quedan afuera
+ * (`DECISIONS #33`).
+ */
+export function puntoEnAnillo(p: Coord, anillo: Coord[]): boolean {
+  if (anillo.length < 3) return false
+
+  let adentro = false
+  for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+    const a = anillo[i]
+    const b = anillo[j]
+    // El lado cruza la horizontal del punto, y el cruce cae a la derecha del punto.
+    const cruza = (a.lat > p.lat) !== (b.lat > p.lat)
+    if (!cruza) continue
+    const lngDelCruce = a.lng + ((p.lat - a.lat) / (b.lat - a.lat)) * (b.lng - a.lng)
+    if (p.lng < lngDelCruce) adentro = !adentro
+  }
+  return adentro
+}
+
+/**
+ * Qué vértices de `coords` caen fuera de `anillo`, por posición (desde 0).
+ *
+ * Sin anillo de referencia no hay nada afuera: no es que estén todos mal, es que no hay
+ * contra qué comparar.
+ */
+export function verticesAfuera(coords: Coord[], anillo: Coord[]): number[] {
+  if (anillo.length < 3) return []
+  const afuera: number[] = []
+  coords.forEach((c, i) => { if (!puntoEnAnillo(c, anillo)) afuera.push(i) })
+  return afuera
+}

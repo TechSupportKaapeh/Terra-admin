@@ -25,6 +25,8 @@ interface Props {
   etiquetaBoton: string
   /** Crea la entidad. Si lanza, el mensaje se muestra y el diálogo queda abierto. */
   onCrear: (datos: DatosNuevaEntidad) => Promise<void>
+  /** El polígono que enmarca a éste: el rancho, cuando lo que se carga es una parcela. */
+  referencia?: { coordinates: Coord[]; nombre: string }
 }
 
 /**
@@ -38,7 +40,7 @@ interface Props {
  * `RanchosPage` que nadie más miraba. Se limpia al crear bien, no al cerrar, para no
  * tirar un polígono a medio escribir si el diálogo se cierra sin querer.
  */
-export default function CrearEntidadDialog({ que, etiquetaBoton, onCrear }: Props) {
+export default function CrearEntidadDialog({ que, etiquetaBoton, onCrear, referencia }: Props) {
   const [abierto, setAbierto] = useState(false)
   const [nombre, setNombre] = useState('')
   const [coords, setCoords] = useState<Coord[]>([])
@@ -79,6 +81,7 @@ export default function CrearEntidadDialog({ que, etiquetaBoton, onCrear }: Prop
             <GeometryInput
               value={coords}
               onChange={(c, f) => { setCoords(c); setFuente(f) }}
+              referencia={referencia}
             />
           </div>
           <MetaFields values={meta} onChange={setMeta} />

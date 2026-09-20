@@ -30,6 +30,8 @@ interface Props {
   /** Se llama al terminar bien: el llamador recarga su lista. */
   onGuardado: () => void
   onCerrar: () => void
+  /** El polígono que enmarca a éste: el rancho, cuando lo que se carga es una parcela. */
+  referencia?: { coordinates: Coord[]; nombre: string }
 }
 
 const mismaGeometria = (a: Coordinate[], b: Coord[]) =>
@@ -46,7 +48,7 @@ const mismaGeometria = (a: Coordinate[], b: Coord[]) =>
  * que deja parcelas afuera— y ese mensaje nombra cuáles: se muestra tal cual.
  */
 export default function EditarEntidadDialog({
-  entidad, que, onGuardarNombre, onGuardarGeometria, onGuardado, onCerrar,
+  entidad, que, onGuardarNombre, onGuardarGeometria, onGuardado, onCerrar, referencia,
 }: Props) {
   const [nombre, setNombre] = useState(entidad.name)
   const [coords, setCoords] = useState<Coord[]>(() => entidad.coordinates.map(c => ({ lat: c.lat, lng: c.lng })))
@@ -127,6 +129,7 @@ export default function EditarEntidadDialog({
             <GeometryInput
               value={coords}
               onChange={(c, f) => { setCoords(c); setFuente(f) }}
+              referencia={referencia}
             />
           </div>
 

@@ -83,8 +83,39 @@ Reprocesar un **rancho** arrastra además sus parcelas activas.
 cambia al recalcular. Sin eso el navegador seguiría mostrando la imagen vieja hasta un
 año, porque el tileserver la sirve como `immutable`.
 
-## Lo que falta (M.7.5)
+## Dibujar con clics (M.7.5, 2026-09-20)
 
-Dibujar el polígono **con clics sobre el mapa**, arrastrar vértices, y ver el rancho de
-referencia debajo mientras se dibuja una parcela. Lo de acá es la carga por texto con
-borrador en vivo, que es lo que hacía falta para corregir geometrías mal cargadas.
+**«Dibujar con clics»** debajo del mapa lo agranda y pone cada clic como un vértice, en
+orden. **Deshacer punto** saca el último, y **Cerrar polígono** —el de siempre— lo termina.
+
+Los clics y el cuadro de texto son **lo mismo**: el clic escribe una línea `lat,lng` con
+seis decimales (~10 cm) y el borrador se sigue derivando del texto. Así se puede dibujar
+a mano alzada y después corregir un número a mano, sin dos estados que se peleen.
+
+**Al prender el dibujo, el cuadrado de ejemplo se borra.** Agregarle puntos a un ejemplo
+no es lo que nadie quiere, y es lo que pasaría si se quedara.
+
+## El rancho de referencia, y los vértices afuera
+
+Cuando lo que se carga es una **parcela**, el rancho se dibuja de fondo, punteado y en
+gris: es el marco, no el dato que se está cargando. Con el editor vacío, **el mapa
+arranca encuadrado en el rancho**, que es donde hay que dibujar.
+
+**Los vértices que caen fuera del rancho se ven en rojo** —con "fuera de «Campo Norte»" al
+pasar el mouse— y debajo aparece el aviso con sus números. No bloquea el botón: **la
+autoridad es Geocore**, que valida con PostGIS y contesta `422 PARCELA_FUERA_DEL_RANCHO`.
+El aviso está para no mandar un POST que ya se sabe que vuelve rechazado, y para ver
+**cuál** es el punto que hay que mover.
+
+La prueba de adentro/afuera es el método del rayo sobre lat/lng
+(`verticesAfuera` en `src/lib/geometria.ts`, con tests desde M.7.6). **Es una cuenta
+plana, no geodésica**: a la escala de un rancho la diferencia no alcanza a cambiar de
+lado salvo pegado al borde.
+
+## Lo que sigue faltando
+
+- **Arrastrar un vértice** ya puesto: hoy se deshace y se vuelve a marcar, o se corrige el
+  número en el texto.
+- **La capa satelital de fondo**, para dibujar sobre lo que se ve en el campo y no sobre
+  el mapa de calles. Falta confirmar la licencia de la imagen; el mapa del rancho (M.7.4)
+  ya usa la de Esri, así que la pregunta es si vale para este uso también.
