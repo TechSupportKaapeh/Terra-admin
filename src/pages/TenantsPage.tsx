@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import TenantMembersDialog from '@/components/TenantMembersDialog'
 
-// Para el SelectValue de Base UI: sin `items` muestra el código ("es") en vez del nombre.
-const IDIOMAS = { es: 'Español', en: 'English' }
+const IDIOMAS = [{ value: 'es', label: 'Español' }, { value: 'en', label: 'English' }]
 
 export default function TenantsPage() {
   const [data, setData] = useState<PagedResult<Tenant> | null>(null)
@@ -87,13 +86,11 @@ export default function TenantsPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Idioma</Label>
-                  <Select value={form.defaultLanguage} onValueChange={v => setForm(f => ({ ...f, defaultLanguage: v ?? f.defaultLanguage }))} items={IDIOMAS}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="es">Español</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Selector
+                    items={IDIOMAS}
+                    value={form.defaultLanguage}
+                    onValueChange={v => setForm(f => ({ ...f, defaultLanguage: v || f.defaultLanguage }))}
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -102,17 +99,13 @@ export default function TenantsPage() {
               </div>
               <div className="space-y-1">
                 <Label>Admin inicial</Label>
-                {/* `items`: sin él, Base UI muestra el value elegido, que es el id del usuario. */}
-                <Select
-                  value={form.adminUserId || null}
-                  onValueChange={v => setForm(f => ({ ...f, adminUserId: v ?? f.adminUserId }))}
-                  items={Object.fromEntries(users.map(u => [u.id, `${u.name} ${u.lastName} — ${u.email}`]))}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecciona un usuario" /></SelectTrigger>
-                  <SelectContent>
-                    {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name} {u.lastName} — {u.email}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  items={users.map(u => ({ value: u.id, label: `${u.name} ${u.lastName} — ${u.email}` }))}
+                  value={form.adminUserId}
+                  onValueChange={v => setForm(f => ({ ...f, adminUserId: v || f.adminUserId }))}
+                  placeholder="Selecciona un usuario"
+                  vacio="No hay usuarios"
+                />
               </div>
               {error && <p className="text-destructive text-sm">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>

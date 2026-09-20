@@ -11,7 +11,7 @@ import { escalaDe } from '@/lib/indices'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import Estado from './Estado'
 
 /*
@@ -407,17 +407,13 @@ export default function PilotoTiles() {
       <div className="space-y-4">
         <div className="space-y-1">
           <Label className="text-xs">Tenant</Label>
-          {/* `items`: sin él, Base UI muestra el value elegido, que es el id del tenant. */}
-          <Select
-            value={tenantId || null}
+          <Selector
+            items={tenants.map(t => ({ value: t.id, label: t.name }))}
+            value={tenantId}
             onValueChange={v => { if (v) void elegirTenant(v) }}
-            items={Object.fromEntries(tenants.map(t => [t.id, t.name]))}
-          >
-            <SelectTrigger className="w-full"><SelectValue placeholder="Elegí un tenant" /></SelectTrigger>
-            <SelectContent>
-              {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+            placeholder="Elegí un tenant"
+            className="w-full"
+          />
         </div>
 
         {tenantId && capas.length === 0 && (
@@ -432,37 +428,31 @@ export default function PilotoTiles() {
           <>
             <div className="space-y-1">
               <Label className="text-xs">Rancho o parcela ({entidades.length})</Label>
-              <Select
-                value={entidad || null}
+              {/* `detalle`: la cuenta de capas ayuda a elegir en la lista, pero en el
+                  botón ya elegido sólo hace ruido. */}
+              <Selector
+                items={entidades.map(e => ({ value: e.clave, label: e.etiqueta, detalle: `(${e.capas})` }))}
+                value={entidad}
                 onValueChange={v => { if (v) { setEntidad(v); setMetrica('') } }}
-                items={Object.fromEntries(entidades.map(e => [e.clave, e.etiqueta]))}
-              >
-                <SelectTrigger className="w-full"><SelectValue placeholder="Elegí uno" /></SelectTrigger>
-                <SelectContent>
-                  {entidades.map(e => (
-                    <SelectItem key={e.clave} value={e.clave}>{e.etiqueta} ({e.capas})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Elegí uno"
+                className="w-full"
+              />
             </div>
 
             {entidad && (
               <div className="space-y-1">
                 <Label className="text-xs">Métrica ({metricas.length})</Label>
-                <Select
-                  value={metrica || null}
+                <Selector
+                  items={metricas.map(m => ({
+                    value: m.indice,
+                    label: m.indice.toUpperCase(),
+                    detalle: `(${m.meses} fechas)`,
+                  }))}
+                  value={metrica}
                   onValueChange={v => { if (v) elegirMetrica(v) }}
-                  items={Object.fromEntries(metricas.map(m => [m.indice, m.indice.toUpperCase()]))}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Elegí una" /></SelectTrigger>
-                  <SelectContent>
-                    {metricas.map(m => (
-                      <SelectItem key={m.indice} value={m.indice}>
-                        {m.indice.toUpperCase()} ({m.meses} fechas)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Elegí una"
+                  className="w-full"
+                />
               </div>
             )}
 
@@ -570,12 +560,12 @@ export default function PilotoTiles() {
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-xs">Paleta</Label>
-            <Select value={cmap} onValueChange={v => { if (v) setCmap(v) }}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.keys(PALETAS).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Selector
+              items={Object.keys(PALETAS).map(p => ({ value: p, label: p }))}
+              value={cmap}
+              onValueChange={v => { if (v) setCmap(v) }}
+              className="w-full"
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Opacidad</Label>

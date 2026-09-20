@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Selector from '@/components/Selector'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -189,9 +189,8 @@ export default function RanchosPage() {
   const selectedRanchoObj = ranchos.find(r => r.id === selectedRancho)
   const selectedRanchoName = selectedRanchoObj?.name
 
-  // Sin `items`, el SelectValue de Base UI muestra el value crudo: el UUID.
-  const itemsTenant = Object.fromEntries(tenants.map(t => [t.id, t.name]))
-  const itemsRancho = Object.fromEntries(ranchos.map(r => [r.id, r.name]))
+  const opcionesTenant = tenants.map(t => ({ value: t.id, label: t.name }))
+  const opcionesRancho = ranchos.map(r => ({ value: r.id, label: r.name }))
 
   // Geometría a dibujar: el rancho seleccionado (azul) + sus parcelas (verde).
   const mapShapes: Shape[] = []
@@ -204,15 +203,15 @@ export default function RanchosPage() {
 
       <div className="space-y-1 max-w-xs">
         <Label>Tenant</Label>
-        {/* `v ?? ''`: Base UI emite null al limpiar; '' es nuestro sentinel de "sin
-            tenant" (useState('')), que oculta las pestañas dependientes. Hacia Base UI
-            va como null, que es su "nada elegido" y muestra el placeholder. */}
-        <Select value={tenantId || null} onValueChange={v => setTenantId(v ?? '')} items={itemsTenant}>
-          <SelectTrigger><SelectValue placeholder="Selecciona un tenant" /></SelectTrigger>
-          <SelectContent>
-            {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* '' es el sentinel de "sin tenant" (useState('')), que oculta las pestañas
+            dependientes; `Selector` lo traduce al null que espera Base UI. */}
+        <Selector
+          items={opcionesTenant}
+          value={tenantId}
+          onValueChange={setTenantId}
+          placeholder="Selecciona un tenant"
+          vacio="Este usuario no ve ningún tenant"
+        />
       </div>
 
       {pageError && (
@@ -309,12 +308,13 @@ export default function RanchosPage() {
             <div className="flex items-center gap-3">
               <div className="space-y-1 flex-1 max-w-xs">
                 <Label>Rancho</Label>
-                <Select value={selectedRancho || null} onValueChange={v => setSelectedRancho(v ?? '')} items={itemsRancho}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona un rancho" /></SelectTrigger>
-                  <SelectContent>
-                    {ranchos.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  items={opcionesRancho}
+                  value={selectedRancho}
+                  onValueChange={setSelectedRancho}
+                  placeholder="Selecciona un rancho"
+                  vacio="Este tenant no tiene ranchos"
+                />
               </div>
               {selectedRancho && (
                 <div className="mt-5">
