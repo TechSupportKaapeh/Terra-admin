@@ -46,10 +46,20 @@ imágenes encontró, cuántas fechas escribió, cuántos MB bajó, cuánto tard�
 
 | Tipo | Lo dispara | Etapas |
 |---|---|---|
-| Histórico de parcela (`ParcelaInicial`) | Crear una parcela | plan → 8 trimestres de fechas Sentinel-2 (730 días) → mapa NDVI de la fecha más reciente → 12 meses de serie NDVI → (rescate si ningún mes tuvo valor) |
-| Ráster de rancho (`RanchoInicial`) | Crear un rancho | compuesto NDVI de 30 días → descarga → COG → subida |
+| Histórico de parcela (`ParcelaInicial`) | Crear una parcela, o un reproceso | **un step por mes, 24 meses**; cada uno escribe 4 filas (NDVI, EVI, NDRE y NDMI) con sus 7 estadísticas, la cobertura y la receta. 96 filas en total |
+| Ráster de rancho (`RanchoInicial`) | Crear un rancho, o un reproceso | un step por mes, 24 meses; cada uno sube **un COG por índice** (4) con su fila en `layers`. Un mes sin un píxel limpio no tiene mapa |
+| Mes de parcela (`ParcelaMensual`) | El cierre de mes, cada hora | **un solo step**, el mes que viene en `periodo`. Mismo cálculo que un mes del alta |
+| Mes de rancho (`RanchoMensual`) | Ídem | un solo step, los 4 COG de ese mes |
 | Mapa de calor (`heatmap`) | Pedido a demanda de una parcela | cálculo en GEE (o reutiliza la capa si ya existe) → COG → registro |
+| Serie (`timeseries`), Fechas (`dates`), Estadísticas (`stats`), Exportación (`export`) | Pedidos a demanda de una parcela | La **capa vieja**, anterior al pipeline mensual. Su futuro lo decide M.6.2 |
 | … · polígono libre | Pedidos on-the-fly | ídem, sin parcela detrás |
+
+Las dos primeras filas describían hasta el 2026-09-20 el comportamiento **anterior** a
+M.4.4 (trimestres de fechas y una serie de 12 meses de NDVI). El alta pasó al pipeline
+mensual el 2026-09-18 y el mapa del rancho a los cuatro índices el 2026-09-20.
+
+Los tipos mensuales traen **`periodo`** (`AAAA-MM`), que la página muestra al lado del
+tipo; los demás lo traen vacío.
 
 ## Los avisos ámbar
 
