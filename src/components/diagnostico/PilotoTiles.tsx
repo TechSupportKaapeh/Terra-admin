@@ -7,6 +7,7 @@ import {
   type Tenant, type LayerSummary, type LayerDetail,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -127,6 +128,32 @@ function AlHacerClick({ onClick }: { onClick: (lat: number, lng: number) => void
   return null
 }
 
+/** La entidad de una capa: su rancho, o su parcela si es de una (las on-demand). */
+function claveDeEntidad(c: LayerSummary): string {
+  return c.parcelaId ? `p:${c.parcelaId}` : `r:${c.ranchoId ?? 'sin-entidad'}`
+}
+
+/**
+ * Las fechas de una entidad y una métrica, **de la más vieja a la más nueva**.
+ *
+ * En ese orden porque se recorren con un deslizador, y el tiempo va hacia la derecha.
+ *
+ * Es una función pura y **fuera del componente**: los handlers necesitan la lista antes de
+ * que el estado se actualice —para saltar a la última fecha sin esperar un render—, y
+ * adentro sería una dependencia nueva en cada render de los `useMemo` que la usan.
+ */
+function fechasDe(capas: LayerSummary[], clave: string, indice: string) {
+  return capas
+    .filter(c => claveDeEntidad(c) === clave && c.product === indice)
+    .sort((a, b) => a.acquiredTs.localeCompare(b.acquiredTs))
+    .map(c => ({
+      id: c.id,
+      etiqueta: c.source === 'mensual'
+        ? c.acquiredTs.slice(0, 7)
+        : `${c.acquiredTs.slice(0, 10)} · ${c.source}`,
+    }))
+}
+
 export default function PilotoTiles() {
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [tenantId, setTenantId] = useState('')
@@ -136,6 +163,9 @@ export default function PilotoTiles() {
   const [nombres, setNombres] = useState<Map<string, string>>(new Map())
   const [entidad, setEntidad] = useState('')
   const [metrica, setMetrica] = useState('')
+  /** Dónde está el deslizador dentro de `fechas`. El tile se pide con una pausa. */
+  const [posicion, setPosicion] = useState(0)
+  const esperaDelSlider = useRef<number | null>(null)
   const [capa, setCapa] = useState<LayerDetail | null>(null)
   const [token, setToken] = useState('')
   const [exp, setExp] = useState<number | null>(null)
@@ -219,10 +249,28 @@ export default function PilotoTiles() {
     }
   }
 
-  /** La entidad de una capa: su rancho, o su parcela si es de una (las on-demand). */
-  function claveDeEntidad(c: LayerSummary): string {
-    return c.parcelaId ? `p:${c.parcelaId}` : `r:${c.ranchoId ?? 'sin-entidad'}`
+  /**
+   * Mueve el deslizador y pide el tile **250 ms después**.
+   *
+   * Sin la pausa, arrastrar de enero a diciembre dispararía doce veces la cadena entera
+   * —detalle de la capa, `/cog/info`, `/cog/statistics` y los tiles—, y llegarían
+   * desordenadas. La etiqueta sí se actualiza en el acto: lo que se ve sigue al dedo.
+   */
+  function irAFecha(i: number, lista = fechas) {
+    if (lista.length === 0) return
+    const j = Math.max(0, Math.min(lista.length - 1, i))
+    setPosicion(j)
+    if (esperaDelSlider.current !== null) window.clearTimeout(esperaDelSlider.current)
+    esperaDelSlider.current = window.setTimeout(() => void elegirCapa(lista[j].id), 250)
   }
+
+  /** Al elegir métrica se salta a la fecha más nueva: es la que se quiere ver primero. */
+  function elegirMetrica(indice: string) {
+    setMetrica(indice)
+    const lista = fechasDe(capas, entidad, indice)
+    irAFecha(lista.length - 1, lista)
+  }
+
 
   // --- El catálogo: cada nivel sale del anterior --------------------------------------
   //
@@ -253,18 +301,10 @@ export default function PilotoTiles() {
       .sort((a, b) => a.indice.localeCompare(b.indice))
   }, [capas, entidad])
 
-  const fechas = useMemo(() =>
-    capas
-      .filter(c => claveDeEntidad(c) === entidad && c.product === metrica)
-      // De la más nueva a la más vieja: lo que se quiere mirar suele ser lo último.
-      .sort((a, b) => b.acquiredTs.localeCompare(a.acquiredTs))
-      .map(c => ({
-        id: c.id,
-        etiqueta: c.source === 'mensual'
-          ? c.acquiredTs.slice(0, 7)
-          : `${c.acquiredTs.slice(0, 10)} · ${c.source}`,
-      })),
-  [capas, entidad, metrica])
+
+  // Sin `useMemo`: el React Compiler lo memoiza solo, y el manual no lo pudo preservar
+  // porque `irAFecha` lo toma como valor por defecto de un parámetro.
+  const fechas = fechasDe(capas, entidad, metrica)
 
 
   async function elegirCapa(id: string) {
@@ -398,7 +438,7 @@ export default function PilotoTiles() {
                 <Label className="text-xs">Métrica ({metricas.length})</Label>
                 <Select
                   value={metrica || null}
-                  onValueChange={v => { if (v) setMetrica(v) }}
+                  onValueChange={v => { if (v) elegirMetrica(v) }}
                   items={Object.fromEntries(metricas.map(m => [m.indice, m.indice.toUpperCase()]))}
                 >
                   <SelectTrigger className="w-full"><SelectValue placeholder="Elegí una" /></SelectTrigger>
@@ -413,21 +453,55 @@ export default function PilotoTiles() {
               </div>
             )}
 
-            {entidad && metrica && (
+            {entidad && metrica && fechas.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-xs">Fecha ({fechas.length})</Label>
-                <Select
-                  value={capa?.layerId ?? null}
-                  onValueChange={v => { if (v) void elegirCapa(v) }}
-                  items={Object.fromEntries(fechas.map(f => [f.id, f.etiqueta]))}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Elegí una fecha" /></SelectTrigger>
-                  <SelectContent className="max-h-64">
-                    {fechas.map(f => (
-                      <SelectItem key={f.id} value={f.id}>{f.etiqueta}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">
+                  Fecha ({posicion + 1} de {fechas.length})
+                </Label>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                    aria-label="Mes anterior"
+                    disabled={posicion === 0}
+                    onClick={() => irAFecha(posicion - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  <div className="min-w-24 text-center font-mono text-sm tabular-nums">
+                    {fechas[posicion]?.etiqueta}
+                  </div>
+
+                  <Button
+                    type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                    aria-label="Mes siguiente"
+                    disabled={posicion >= fechas.length - 1}
+                    onClick={() => irAFecha(posicion + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* El deslizador va de la fecha más vieja a la más nueva: el tiempo hacia
+                    la derecha. Las flechas del teclado lo mueven de a un mes. */}
+                <input
+                  type="range"
+                  className="w-full accent-primary"
+                  min={0}
+                  max={Math.max(0, fechas.length - 1)}
+                  step={1}
+                  value={posicion}
+                  disabled={fechas.length < 2}
+                  aria-label="Fecha de la capa"
+                  aria-valuetext={fechas[posicion]?.etiqueta}
+                  onChange={e => irAFecha(Number(e.target.value))}
+                />
+
+                <div className="flex justify-between font-mono text-[10px] text-muted-foreground">
+                  <span>{fechas[0]?.etiqueta}</span>
+                  <span>{fechas.at(-1)?.etiqueta}</span>
+                </div>
               </div>
             )}
 
