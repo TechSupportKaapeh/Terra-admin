@@ -212,6 +212,33 @@ export const getLayers = (tenantId: string) =>
 
 export const getLayer = (id: string) => request<LayerDetail>(`/api/layers/${encodeURIComponent(id)}`)
 
+// Mediciones mensuales — la serie de una parcela (Geocore DECISIONS #28).
+//
+// `valor` null es un mes **procesado sin dato**: la cobertura quedó bajo el mínimo de la
+// receta. No es lo mismo que un mes ausente, que es un mes que nadie procesó, y el gráfico
+// los dibuja distinto.
+export const getMeasurements = (parcelaId: string, tenantId: string, indice?: string) => {
+  const q = new URLSearchParams({ parcelaId, limit: '2000' })
+  if (indice) q.set('indice', indice)
+  return request<MeasurementsResponse>(`/api/measurements?${q}`, {}, tenantId)
+}
+
+export interface Measurement {
+  parcelaId: string
+  indice: string
+  /** Primer día del mes, 00:00 UTC. */
+  fecha: string
+  valor: number | null
+  cobertura: number | null
+  observaciones: number | null
+  receta: string | null
+  /** `{ mediana, media, min, max, p10, p90, desvio }`, como las dejó el worker. */
+  estadisticas: Record<string, number | null> | null
+}
+
+/** `truncado` avisa que el techo de `limit` recortó la respuesta (DECISIONS #28). */
+export interface MeasurementsResponse { data: Measurement[]; limit: number; truncado: boolean }
+
 /** Una base, un servicio o el sondeo de uno. `cuerpo` es lo que el servicio dijo de sí mismo. */
 export interface EstadoServicio { nombre: string; estado: string; http: number | null; ms: number; detalle: string; cuerpo: unknown }
 export interface Diagnostico {

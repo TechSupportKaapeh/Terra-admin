@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ServiciosPanel from '@/components/diagnostico/ServiciosPanel'
 import PilotoTiles from '@/components/diagnostico/PilotoTiles'
+import DatosPorTenant from '@/components/diagnostico/DatosPorTenant'
 
 /**
  * Diagnóstico de la plataforma. Sólo para TerraAdmin.
@@ -17,16 +18,19 @@ export default function DiagnosticoPage() {
       <div>
         <h1 className="text-xl font-semibold">Diagnóstico</h1>
         <p className="text-sm text-muted-foreground">
-          Estado de Geocore, el tileserver y el worker, y una prueba de la cadena de tiles de punta a punta.
+          Estado de Geocore, el tileserver y el worker, una prueba de la cadena de tiles de
+          punta a punta, y qué datos tiene cada tenant.
         </p>
       </div>
       <Tabs defaultValue="servicios">
         <TabsList>
           <TabsTrigger value="servicios">Servicios</TabsTrigger>
           <TabsTrigger value="tiles">Tiles</TabsTrigger>
+          <TabsTrigger value="datos">Datos</TabsTrigger>
         </TabsList>
         <TabsContent value="servicios" className="pt-2"><ServiciosPanel /></TabsContent>
         <TabsContent value="tiles" className="pt-2"><PilotoTiles /></TabsContent>
+        <TabsContent value="datos" className="pt-2"><DatosPorTenant /></TabsContent>
       </Tabs>
     </div>
   )

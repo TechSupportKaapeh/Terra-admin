@@ -1,0 +1,66 @@
+# Pestaña Diagnóstico
+
+Sólo para **TerraAdmin**. `App.tsx` la esconde a TerraSupport, pero ese gate es cosmético
+[B-2]: lo que de verdad la protege es la política `TerraAdmin` de
+`GET /api/admin/diagnostico` en Geocore (`DECISIONS #19`).
+
+Tres solapas:
+
+| Solapa | Qué contesta |
+|---|---|
+| **Servicios** | ¿Geocore, el tileserver y el worker están vivos y bien configurados? |
+| **Tiles** | ¿La cadena de tiles funciona de punta a punta, desde el token hasta el PNG? |
+| **Datos** | ¿Qué datos tiene cada tenant, y tienen sentido? |
+
+## Datos (2026-09-20)
+
+Se carga **de a un tenant**: su inventario son 2 + N pedidos —ranchos, capas, y las
+parcelas de cada rancho—, y hacerlo para todos al abrir la pestaña sería una tormenta
+para una pantalla que se mira de a uno.
+
+**Las cinco tarjetas**: ranchos, parcelas, capas mensuales (con cuántas son de la capa
+vieja, si las hay), meses con mapa y la última ingesta. Contestan de un vistazo "¿este
+tenant está bien procesado?".
+
+**La tabla por rancho** dice cuántas parcelas tiene, cuántas capas mensuales, y con cuántos
+índices y meses. Un rancho en cero es *o* que nunca se procesó *o* que ningún mes tuvo un
+píxel limpio (`DECISIONS #51` del worker): el panel no puede distinguirlos, y lo dice.
+
+**El gráfico de una parcela** es la serie mensual de un índice: la mediana, con la banda
+p10–p90 detrás.
+
+### Por qué el gráfico está dibujado así
+
+Es un **prototipo**: la pantalla del cliente es M.7.3. Existe para mirar con ojos los
+números del pipeline antes de construirla, y para que la decisión de librería la tome M.7.3
+sabiendo qué interacción hace falta. Por eso es SVG a mano, sin dependencias (decisión del
+usuario, 2026-09-20).
+
+Tres cosas que el dibujo distingue a propósito, porque son tres cosas distintas:
+
+- **Mes sin dato** (`valor` null): el mes **se procesó**, pero la cobertura quedó bajo el
+  mínimo de la receta. La línea se corta y queda una marca en el eje. No se interpola:
+  una recta entre dos meses inventa un valor que nadie midió.
+- **Mes ausente** (ninguna fila): nadie lo procesó. También corta la línea, y se ve en la
+  tabla de números.
+- **Mes de baja cobertura** (< 50 %): hay dato, pero de poca superficie. El punto va
+  **hueco**, que es una segunda codificación además del color: se lee sin distinguir
+  colores, y sobrevive a una impresión en blanco y negro.
+
+**El eje vertical sale de los datos, no del rango del índice.** Un NDVI que se mueve entre
+0,30 y 0,60 dibujado en \[-1, 1\] es una línea plana que no dice nada.
+
+**Hay una tabla de números** debajo, plegada. No es un extra: la banda p10–p90 es un relleno
+de bajo contraste, y la tabla es lo que la hace legible sin depender del color.
+
+**Colores**: un solo tono azul, con la banda un paso más clara (`#b7d3f6` en claro,
+`#184f95` en oscuro) y la línea en el paso fuerte (`#2a78d6` / `#3987e5`). Es una rampa
+secuencial de un tono, que es lo que corresponde a una sola serie; los colores por índice
+para el mapa los decide M.7.4.
+
+### Lo que falta
+
+- **No hay mapa acá**: el ráster por mes es M.7.4.
+- **La métrica del rancho** (`GET /api/ranchos/{id}/metricas`) todavía no se muestra;
+  entra con M.7.4, que la dibuja al lado del mapa con su `fraccionArea`.
+- **Sin tests**: el panel no tiene ninguno todavía (M.7.6). El gráfico se verificó a ojo.
