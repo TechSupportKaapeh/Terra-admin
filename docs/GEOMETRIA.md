@@ -82,6 +82,7 @@ Reprocesar un **rancho** arrastra además sus parcelas activas.
 **El mapa nuevo se ve enseguida:** la URL de tiles lleva `&v=<fecha de ingesta>`, que
 cambia al recalcular. Sin eso el navegador seguiría mostrando la imagen vieja hasta un
 año, porque el tileserver la sirve como `immutable`.
+
 ## Lo que falta (M.7.5)
 
 Dibujar el polígono **con clics sobre el mapa**, arrastrar vértices, y ver el rancho de
