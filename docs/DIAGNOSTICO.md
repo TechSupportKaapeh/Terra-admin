@@ -30,7 +30,7 @@ su fila en Ranchos. Eso deja una pregunta que hay que contestar antes de agregar
 **Lo que no se hace: el mismo dibujo en los dos lados.** El gráfico de la serie estuvo acá
 como prototipo hasta que M.7.3 lo puso en su pantalla; **se quitó de Diagnóstico el
 2026-09-20**, el mismo día. Si un día hace falta otra vez, se comparte el componente —no se
-copia—, como ya pasa con `SerieMensual`, `useMapToken`, `DeslizadorDeMeses` y `PALETAS`.
+copia—, como ya pasa con `SerieTemporal`, `useMapToken`, `DeslizadorDeMeses` y `PALETAS`.
 
 **Por qué Tiles no es un duplicado del mapa del rancho**, aunque los dos pinten un COG:
 
@@ -122,7 +122,7 @@ píxel limpio (`DECISIONS #51` del worker): el panel no puede distinguirlos, y l
 
 **El gráfico de la serie ya no está acá** (2026-09-20). Vivió en esta solapa como
 prototipo, y desde M.7.3 se mira en **Ranchos → Parcelas → «Serie»**, que es donde está la
-parcela por la que alguien pregunta. Lo dibuja `components/series/SerieMensual.tsx`, y el
+parcela por la que alguien pregunta. Lo dibuja `components/series/SerieTemporal.tsx`, y el
 porqué de cada detalle —la línea cortada, el punto hueco, la tabla de números— está en
 `docs/RANCHOS.md`.
 

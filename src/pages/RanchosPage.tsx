@@ -34,7 +34,7 @@ export default function RanchosPage() {
   const [tenantId, setTenantId] = useState('')
   const [ranchoElegido, setRanchoElegido] = useState('')
   const [jobAbierto, setJobAbierto] = useState<string | null>(null)
-  // La parcela cuya serie mensual está abierta; null = el panel está cerrado.
+  // La parcela cuya serie está abierta; null = el panel está cerrado.
   const [serieDe, setSerieDe] = useState<Parcela | null>(null)
   // El rancho cuyo mapa mensual está abierto.
   const [mapaDe, setMapaDe] = useState<Rancho | null>(null)

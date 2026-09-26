@@ -252,32 +252,83 @@ export const getLayers = (tenantId: string, limit = 2000) =>
 
 export const getLayer = (id: string) => request<LayerDetail>(`/api/layers/${encodeURIComponent(id)}`)
 
-// Mediciones mensuales — la serie de una parcela (Geocore DECISIONS #28).
+/**
+ * Cada cuánto es un punto de la serie (Geocore `DECISIONS #48`, M.9.0c).
+ *
+ * `mensual` es el default **de la API**, y eso es lo que hizo que el panel siguiera
+ * andando el día que `s2-pasada-v2` pasó a ser la receta vigente: pedía lo mismo y recibía
+ * puntos mensuales. Quien agrega es la API, no el front (`DECISIONS #48`): acá se **elige**
+ * la cadencia, no se calcula.
+ */
+export type Cadencia = 'mensual' | 'pasada'
+
+// Mediciones — la serie de una parcela (Geocore DECISIONS #28 y #48).
 //
-// `valor` null es un mes **procesado sin dato**: la cobertura quedó bajo el mínimo de la
-// receta. No es lo mismo que un mes ausente, que es un mes que nadie procesó, y el gráfico
-// los dibuja distinto.
-export const getMeasurements = (parcelaId: string, tenantId: string, indice?: string) => {
+// `valor` null es una observación **procesada sin dato**: la cobertura quedó bajo el mínimo
+// de la receta que la escribió. No es lo mismo que un período ausente —que es uno que nadie
+// procesó— y el gráfico los dibuja distinto.
+//
+// **El techo y la cadencia van juntos.** Con `cadencia=pasada` una parcela tiene unas 768
+// filas cada dos años contando sus cuatro índices (`DECISIONS #70` del worker), así que
+// 2000 alcanza de sobra para **una** parcela y un índice, que es lo que pide el panel. Si
+// alguna vez pidiera varias parcelas en la misma llamada, el techo se toca y lo que lo dice
+// es `truncado` de la respuesta — hay que mirarlo, no suponerlo.
+//
+// `coberturaMinima` no se pide a propósito: sin el parámetro la API no filtra nada, y eso
+// es lo que corresponde acá. Una medición de poca cobertura se dibuja —con el punto hueco,
+// o como hueco si no trae valor—; filtrarla la haría desaparecer en vez de mostrarse.
+export const getMeasurements = (parcelaId: string, tenantId: string, indice?: string, cadencia?: Cadencia) => {
   const q = new URLSearchParams({ parcelaId, limit: '2000' })
   if (indice) q.set('indice', indice)
+  if (cadencia) q.set('cadencia', cadencia)
   return request<MeasurementsResponse>(`/api/measurements?${q}`, {}, tenantId)
 }
 
 export interface Measurement {
   parcelaId: string
   indice: string
-  /** Primer día del mes, 00:00 UTC. */
+  /**
+   * El primer instante de la ventana de observación, en UTC.
+   *
+   * Qué es depende de la cadencia, y **no es siempre el día 1 del mes**: con
+   * `cadencia=mensual` sí —y también en las filas viejas de `s2-mensual-v1`—, pero con
+   * `cadencia=pasada` es la **fecha de adquisición** de esa pasada del satélite
+   * (`DECISIONS #70` del worker).
+   *
+   * Llega como `AAAA-MM-DD`: Geocore lo formatea así para las dos cadencias, así que la
+   * hora de la adquisición **no viaja en el JSON** aunque la columna la tenga. Por eso dos
+   * pasadas del mismo día llegan con la misma fecha, y por eso `serie.ts` no la usa de
+   * clave. Está reportado; `instanteDe` ya lee las dos formas.
+   */
   fecha: string
   valor: number | null
   cobertura: number | null
   observaciones: number | null
+  /**
+   * La receta que produjo la fila. Con `cadencia=mensual` puede traer **varias separadas
+   * por coma** —`"s2-mensual-v1,s2-pasada-v2"` en un mes reprocesado—, y la API lo muestra
+   * así a propósito: son filas de dos semánticas en el mismo punto (`DECISIONS #48`).
+   */
   receta: string | null
   /** `{ mediana, media, min, max, p10, p90, desvio }`, como las dejó el worker. */
   estadisticas: Record<string, number | null> | null
+  /**
+   * Cuántas observaciones entraron en este punto. Con `pasada` es 1; con `mensual` dice si
+   * el mes salió de seis pasadas o de una, que es lo que hace comparables dos meses.
+   *
+   * Opcional porque es de M.9.0c: una respuesta de antes no lo trae, y ahí 1 es la verdad.
+   */
+  agregadas?: number
 }
 
-/** `truncado` avisa que el techo de `limit` recortó la respuesta (DECISIONS #28). */
-export interface MeasurementsResponse { data: Measurement[]; limit: number; truncado: boolean }
+/**
+ * `truncado` avisa que el techo de `limit` recortó la respuesta (DECISIONS #28). Es la
+ * comparación barata —hay exactamente `limit` filas—, así que puede dar un falso positivo.
+ *
+ * `cadencia` es la que la API **aplicó**, y no necesariamente la que se pidió: quien dibuja
+ * mira ésta, porque es la que describe lo que está en `data`.
+ */
+export interface MeasurementsResponse { data: Measurement[]; limit: number; truncado: boolean; cadencia: Cadencia }
 
 /** Una base, un servicio o el sondeo de uno. `cuerpo` es lo que el servicio dijo de sí mismo. */
 export interface EstadoServicio { nombre: string; estado: string; http: number | null; ms: number; detalle: string; cuerpo: unknown }

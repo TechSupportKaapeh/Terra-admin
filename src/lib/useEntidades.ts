@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
   describeError, getLayer, getLayers, getMeasurements, getMetricasRancho, getParcelas, getRanchos, getTenants,
-  type LayerDetail, type LayerSummary, type Measurement, type MetricasRancho, type Parcela, type Rancho, type Tenant,
+  type Cadencia, type LayerDetail, type LayerSummary, type MeasurementsResponse, type MetricasRancho,
+  type Parcela, type Rancho, type Tenant,
 } from '@/lib/api'
 
 /**
  * Las listas que mira la pantalla de Ranchos: los tenants, los ranchos de un tenant, las
- * parcelas de un rancho y la serie mensual de una parcela.
+ * parcelas de un rancho y la serie de una parcela, con la cadencia elegida.
  *
  * Todas siguen el patrón de [`useProcesos`](useProcesos.ts): un `vivo` que se apaga al
  * limpiar el efecto, y un contador para `recargar()` después de crear o editar algo.
@@ -83,9 +84,14 @@ const PEDIR_PARCELAS = (clave: string) => {
   return getParcelas(ranchoId, tenantId)
 }
 
+/**
+ * La serie devuelve **la respuesta entera** y no sólo `data`: `truncado` dice que el techo
+ * de `limit` recortó la serie y `cadencia` dice con qué agrupamiento salió. Quedarse con
+ * las filas solas tira las dos cosas, y las dos se leen en pantalla.
+ */
 const PEDIR_SERIE = (clave: string) => {
-  const [tenantId, parcelaId, indice] = clave.split('/')
-  return getMeasurements(parcelaId, tenantId, indice).then(r => r.data)
+  const [tenantId, parcelaId, indice, cadencia] = clave.split('/')
+  return getMeasurements(parcelaId, tenantId, indice, cadencia as Cadencia)
 }
 
 /**
@@ -150,16 +156,18 @@ export function useParcelas(ranchoId: string, tenantId: string) {
 }
 
 /**
- * La serie mensual de **un índice** de una parcela, de más vieja a más nueva según la
- * arme quien la dibuje.
+ * La serie de **un índice** de una parcela, con la cadencia elegida (M.9.0d).
  *
- * El índice va en la clave: cambiarlo es otro pedido, y la respuesta del índice anterior
- * que llegue tarde no puede pintarse como si fuera la nueva.
+ * El índice y la cadencia van en la clave: cambiar cualquiera de los dos es otro pedido, y
+ * la respuesta del anterior que llegue tarde no puede pintarse como si fuera la nueva. Con
+ * la cadencia eso no es una precaución de manual — `mensual` y `pasada` devuelven **la
+ * misma parcela con otra cantidad de puntos**, así que la respuesta vieja se dibujaría sin
+ * un solo síntoma de estar equivocada.
  */
-export function useSerieMensual(parcelaId: string, tenantId: string, indice: string) {
-  const clave = parcelaId && tenantId && indice ? `${tenantId}/${parcelaId}/${indice}` : null
-  const { datos, error, recargar } = useCargado<Measurement[]>(clave, PEDIR_SERIE)
-  return { filas: datos, error, recargar }
+export function useSerie(parcelaId: string, tenantId: string, indice: string, cadencia: Cadencia) {
+  const clave = parcelaId && tenantId && indice ? `${tenantId}/${parcelaId}/${indice}/${cadencia}` : null
+  const { datos, error, recargar } = useCargado<MeasurementsResponse>(clave, PEDIR_SERIE)
+  return { serie: datos, error, recargar }
 }
 
 /** Las capas mensuales de un rancho, de todos sus índices y meses. */

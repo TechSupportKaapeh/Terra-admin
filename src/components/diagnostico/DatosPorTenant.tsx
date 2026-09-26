@@ -171,7 +171,7 @@ export default function DatosPorTenant() {
           {/* Dónde está lo que esta pestaña ya no hace. Es una línea de texto y no un
               enlace porque el panel navega por estado, no por ruta: no hay a dónde apuntar. */}
           <p className="text-sm text-muted-foreground">
-            La serie mensual de una parcela se mira en <b>Ranchos → Parcelas → «Serie»</b>, y el
+            La serie de una parcela se mira en <b>Ranchos → Parcelas → «Serie»</b>, y el
             mapa por mes de un rancho en <b>Ranchos → «Mapa»</b>. Acá queda el inventario: qué
             hay procesado y de cuándo.
           </p>
