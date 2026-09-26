@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ESCALAS, escalaDe, PALETAS } from '@/lib/indices'
+import { ESCALAS, escalaDe, fueraDeEscala, PALETAS } from '@/lib/indices'
 
 /**
  * Cómo se pinta cada índice (M.7.6).
@@ -54,5 +54,29 @@ describe('escalaDe', () => {
     for (const [nombre, escala] of Object.entries(ESCALAS)) {
       expect(PALETAS[escala.paleta], `${nombre} → ${escala.paleta}`).toBeDefined()
     }
+  })
+})
+
+describe('fueraDeEscala', () => {
+  // Lo que antes se veía moviendo el rescale a mano en Diagnóstico → Tiles. Sin este aviso,
+  // un ráster entero bajo cero pintado en la escala del NDVI se ve rojo parejo, y parece un
+  // COG roto en vez de un dato que la escala no alcanza.
+
+  it('un NDVI entero bajo cero cae por debajo de su escala', () => {
+    expect(fueraDeEscala({ min: -0.4, max: -0.05 }, escalaDe('ndvi'))).toBe('abajo')
+  })
+
+  it('un ráster por encima del techo cae arriba', () => {
+    // NDRE llega sólo a 0,5: un NDRE de 0,55 a 0,7 se pinta entero en el extremo verde.
+    expect(fueraDeEscala({ min: 0.55, max: 0.7 }, escalaDe('ndre'))).toBe('arriba')
+  })
+
+  it('un ráster que la escala corta, aunque sea en parte, no avisa: se ve con colores', () => {
+    expect(fueraDeEscala({ min: -0.2, max: 0.3 }, escalaDe('ndvi'))).toBeNull()
+    expect(fueraDeEscala({ min: 0.1, max: 0.6 }, escalaDe('ndvi'))).toBeNull()
+  })
+
+  it('NDMI negativo NO está fuera de escala: su escala es divergente y arranca en −0,4', () => {
+    expect(fueraDeEscala({ min: -0.3, max: -0.1 }, escalaDe('ndmi'))).toBeNull()
   })
 })
