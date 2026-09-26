@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { querySerie } from './serie'
 
 const GEOCORE_URL = import.meta.env.VITE_GEOCORE_URL as string
 
@@ -274,15 +275,16 @@ export type Cadencia = 'mensual' | 'pasada'
 // alguna vez pidiera varias parcelas en la misma llamada, el techo se toca y lo que lo dice
 // es `truncado` de la respuesta — hay que mirarlo, no suponerlo.
 //
-// `coberturaMinima` no se pide a propósito: sin el parámetro la API no filtra nada, y eso
-// es lo que corresponde acá. Una medición de poca cobertura se dibuja —con el punto hueco,
-// o como hueco si no trae valor—; filtrarla la haría desaparecer en vez de mostrarse.
-export const getMeasurements = (parcelaId: string, tenantId: string, indice?: string, cadencia?: Cadencia) => {
-  const q = new URLSearchParams({ parcelaId, limit: '2000' })
-  if (indice) q.set('indice', indice)
-  if (cadencia) q.set('cadencia', cadencia)
-  return request<MeasurementsResponse>(`/api/measurements?${q}`, {}, tenantId)
-}
+// `coberturaMinima` **hay que mandarlo** desde `s2-pasada-v2`: sin el parámetro la API no
+// filtra nada, y el worker ya no filtra al escribir, así que el umbral no se aplicaría en
+// ningún lado. Las pasadas tapadas entraban a la mediana del mes y lo dejaban en 0 % de
+// cobertura (`COBERTURA_MINIMA` en `serie.ts`, y `DECISIONS #51` de Geocore). M.9.0d decidió
+// no mandarlo, y fue un error.
+export const getMeasurements = (
+  parcelaId: string, tenantId: string, indice?: string, cadencia?: Cadencia, coberturaMinima?: number,
+) => request<MeasurementsResponse>(
+  `/api/measurements?${querySerie(parcelaId, indice, cadencia, coberturaMinima)}`, {}, tenantId,
+)
 
 export interface Measurement {
   parcelaId: string

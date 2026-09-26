@@ -65,8 +65,8 @@ function Serie({ parcelaId, nombre, tenantId }: { parcelaId: string; nombre: str
         <SheetTitle>{nombre}</SheetTitle>
         <SheetDescription>
           {cadencia === 'mensual'
-            ? 'Un punto por mes: la mediana de las pasadas del mes, que la agrega la API.'
-            : 'Un punto por pasada del satélite, con su fecha de adquisición. Es lo que el worker guarda desde s2-pasada-v2.'}
+            ? 'Un punto por mes: la mediana de las pasadas del mes en que se ve al menos el 30 % de la parcela. La agrega la API.'
+            : 'Un punto por pasada del satélite en que se ve al menos el 30 % de la parcela, con su fecha de adquisición. Las tapadas por nubes no entran.'}
         </SheetDescription>
       </SheetHeader>
 

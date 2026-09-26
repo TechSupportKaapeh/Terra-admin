@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Measurement } from '@/lib/api'
-import { etiquetaDe, instanteDe, marcasDeTiempo, recetasDe, serieDe } from '@/lib/serie'
+import {
+  COBERTURA_MINIMA, etiquetaDe, HUECO_LARGO_MS, instanteDe, marcasDeTiempo, querySerie, recetasDe, serieDe, tramosDe,
+} from '@/lib/serie'
 
 /**
  * El eje de fechas (M.9.0d).
@@ -116,14 +118,25 @@ describe('serieDe', () => {
     expect(s.ilegibles).toBe(1)
   })
 
-  it('el dominio vertical sale de los datos, con aire, y toma la banda p10–p90', () => {
+  it('el dominio vertical sale de los valores, con aire', () => {
     const s = serieDe([
-      fila('2026-03-01', { valor: 0.4, estadisticas: { p10: 0.3, p90: 0.5 } }),
-      fila('2026-04-01', { valor: 0.6, estadisticas: { p10: 0.5, p90: 0.7 } }),
+      fila('2026-03-01', { valor: 0.4 }),
+      fila('2026-04-01', { valor: 0.6 }),
     ], 'mensual')
-    // Un NDVI que se mueve entre 0,3 y 0,7 dibujado en [-1, 1] sería una línea plana.
-    expect(s.dominioY.desde).toBeLessThan(0.3)
-    expect(s.dominioY.hasta).toBeGreaterThan(0.7)
+    // Un NDVI que se mueve entre 0,4 y 0,6 dibujado en [-1, 1] sería una línea plana.
+    expect(s.dominioY.desde).toBeLessThan(0.4)
+    expect(s.dominioY.hasta).toBeGreaterThan(0.6)
+    expect(s.dominioY.hasta - s.dominioY.desde).toBeLessThan(0.5)
+  })
+
+  it('una banda extrema NO estira el eje: es el borde de una nube, no el cultivo', () => {
+    // El caso real del 2026-09-26: una pasada con pocos píxeles limpios traía un p10 de −1,0 y
+    // el eje iba de −1,2 a 1,2 para un NDVI que vive entre 0,4 y 0,8.
+    const s = serieDe([
+      fila('2025-12-01', { valor: 0.7, estadisticas: { p10: -1.0, p90: 0.9 } }),
+      fila('2025-12-05', { valor: 0.5, estadisticas: { p10: 0.4, p90: 0.6 } }),
+    ], 'pasada')
+    expect(s.dominioY.desde).toBeGreaterThan(0.3)
   })
 
   it('una serie sin un solo valor no rompe el dominio vertical', () => {
@@ -187,5 +200,73 @@ describe('marcasDeTiempo', () => {
   it('un dominio degenerado no cuelga el render: devuelve una lista vacía', () => {
     expect(marcasDeTiempo({ desde: 0, hasta: 0 })).toEqual([])
     expect(marcasDeTiempo({ desde: 10, hasta: 5 })).toEqual([])
+  })
+})
+
+describe('tramosDe', () => {
+  // La línea une cada punto con valor con el siguiente (pedido del usuario, 2026-09-26): cortada
+  // en cada hueco, la serie por pasada no se leía. Lo que se conserva es no mentir sobre el hueco.
+  const p = (fecha: string, valor: number | null) => ({ t: instanteDe(fecha), valor })
+
+  it('une cada punto con el siguiente, sin cortar', () => {
+    const tramos = tramosDe([p('2025-07-01', 0.4), p('2025-07-14', 0.5), p('2025-07-24', 0.6)])
+    expect(tramos).toHaveLength(2)
+    expect(tramos.every(t => !t.largo)).toBe(true)
+  })
+
+  it('un punto sin valor no corta la línea: se saltea y los vecinos se unen', () => {
+    const tramos = tramosDe([p('2025-07-01', 0.4), p('2025-07-03', null), p('2025-07-14', 0.5)])
+    expect(tramos).toHaveLength(1)
+    expect(tramos[0].desde.valor).toBe(0.4)
+    expect(tramos[0].hasta.valor).toBe(0.5)
+  })
+
+  it('más de 40 días sin observación útil: el tramo es largo y se dibuja punteado', () => {
+    const [corto, largo] = tramosDe([p('2025-04-01', 0.4), p('2025-04-20', 0.5), p('2025-07-01', 0.6)])
+    expect(corto.largo).toBe(false)
+    expect(largo.largo).toBe(true)
+  })
+
+  it('en la serie mensual, meses seguidos no se puntean; sólo un mes que falta', () => {
+    // 28 a 31 días entre dos meses consecutivos: por eso el umbral es 40 y no 30.
+    const [feb, mar, may] = tramosDe([
+      p('2025-01-01', 0.4), p('2025-02-01', 0.5), p('2025-03-01', 0.5), p('2025-05-01', 0.6),
+    ])
+    expect(feb.largo).toBe(false)
+    expect(mar.largo).toBe(false)
+    expect(may.largo).toBe(true)
+    expect(HUECO_LARGO_MS).toBeGreaterThan(31 * UN_DIA)
+  })
+
+  it('con uno o ningún punto con valor no hay línea', () => {
+    expect(tramosDe([p('2025-07-01', 0.4), p('2025-07-03', null)])).toEqual([])
+    expect(tramosDe([])).toEqual([])
+  })
+})
+
+describe('COBERTURA_MINIMA', () => {
+  it('es la de la receta, y una fracción: la API rechaza con 400 un porcentaje', () => {
+    // `cobertura_minima` vale 0,3 en s2-mensual-v1 y en s2-pasada-v2. Si una receta nueva lo
+    // cambia, este número cambia con ella: la API no expone la receta.
+    expect(COBERTURA_MINIMA).toBe(0.3)
+  })
+})
+
+describe('querySerie', () => {
+  it('lleva el mínimo de cobertura cuando se lo pasan: es lo que se rompió el 2026-09-26', () => {
+    const q = new URLSearchParams(querySerie('p1', 'ndvi', 'pasada', COBERTURA_MINIMA))
+    expect(q.get('coberturaMinima')).toBe('0.3')
+    expect(q.get('cadencia')).toBe('pasada')
+    expect(q.get('indice')).toBe('ndvi')
+    expect(q.get('parcelaId')).toBe('p1')
+  })
+
+  it('manda una fracción y no un porcentaje: con "30" la API contesta 400', () => {
+    const q = new URLSearchParams(querySerie('p1', 'ndvi', 'mensual', COBERTURA_MINIMA))
+    expect(Number(q.get('coberturaMinima'))).toBeLessThanOrEqual(1)
+  })
+
+  it('sin mínimo no manda el parámetro, en vez de mandarlo vacío', () => {
+    expect(new URLSearchParams(querySerie('p1')).has('coberturaMinima')).toBe(false)
   })
 })

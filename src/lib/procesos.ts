@@ -123,7 +123,10 @@ export function datosDeEvento(e: EventoProceso): string[] {
   if (v('desde') && v('hasta')) datos.push(`${v('desde')} → ${v('hasta')}`)
   else if (v('fecha')) datos.push(`fecha ${v('fecha')}`)
   if (v('imagenes') !== null) datos.push(`${v('imagenes')} imágenes`)
-  if (v('escritas') !== null) datos.push(`${v('escritas')} fechas escritas`)
+  // `escritas` son **filas** de `measurements`, no fechas: una por índice y por pasada, así que
+  // un mes con 19 pasadas escribe 76. Decía "fechas" desde v1, cuando un mes eran 4 filas y no
+  // se notaba (corregido el 2026-09-26).
+  if (v('escritas') !== null) datos.push(`${v('escritas')} filas escritas`)
   if (v('megas') !== null) datos.push(`${v('megas')} MB`)
   if (typeof d.ms === 'number') datos.push(duracion(d.ms))
   return datos
