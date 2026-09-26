@@ -20,11 +20,11 @@ al confirmar**:
 
 | Dónde | Qué |
 |---|---|
-| `lib/useEntidades.ts` | Los pedidos: `useTenants`, `useRanchos`, `useParcelas`, `useSerieMensual`, `useCapasDeRancho`, `useCapa`, `useMetricasRancho` |
+| `lib/useEntidades.ts` | Los pedidos: `useTenants`, `useRanchos`, `useParcelas`, `useSerie`, `useCapasDeRancho`, `useCapa`, `useMetricasRancho` |
 | `lib/useMapToken.ts` | El token de mapa, con su renovación |
 | `lib/meta.ts` | Los campos opcionales de ubicación |
 | `components/ranchos/` | Las dos tablas, el diálogo de alta y la celda de proceso |
-| `components/series/` | La serie mensual y su panel |
+| `components/series/` | El gráfico de la serie, el interruptor de cadencia y su panel |
 | `components/mapas/` | El mapa del rancho, el deslizador de meses y su panel |
 
 ## Los pedidos se cancelan, y eso no es sólo orden
@@ -41,21 +41,74 @@ que la tabla nunca muestra una fila del tenant anterior.
 Por la misma razón, **cambiar de tenant limpia el rancho elegido y cierra los paneles
 abiertos**. Va en el handler, no en un efecto (`set-state-in-effect`).
 
-## La serie de una parcela (M.7.3)
+## La serie de una parcela (M.7.3, con el eje de fechas de M.9.0d)
 
-"Serie" en la fila de una parcela abre un panel lateral con la serie mensual de un índice.
-El gráfico es el mismo que el Diagnóstico usa desde el 2026-09-20 y es **SVG a mano, sin
+"Serie" en la fila de una parcela abre un panel lateral con la serie de un índice. El
+gráfico es el mismo que el Diagnóstico usó hasta el 2026-09-20 y es **SVG a mano, sin
 librería de gráficos** (decisión del usuario, confirmada al abrir M.7.3).
 
 Distingue tres cosas que no son lo mismo:
 
-- **un mes sin dato** (`valor` null) es un mes **procesado** cuya cobertura quedó bajo el
-  mínimo de la receta: la línea se corta y queda una marca en el eje;
-- **un mes ausente** —ninguna fila— es un mes que nadie procesó: también corta la línea;
-- **un mes de baja cobertura** trae dato de poca superficie: el punto va hueco.
+- **un período sin dato** (`valor` null) es un período **procesado** cuya cobertura quedó
+  bajo el mínimo de la receta que lo escribió: la línea se corta y queda una marca en el
+  eje. Lo escribe `s2-mensual-v1`; `s2-pasada-v2` ya no descarta al escribir, así que en lo
+  nuevo el valor va siempre y el umbral es de quien lee (`DECISIONS #70` del worker);
+- **un período ausente** —ninguna fila— es un período que nadie procesó: también corta la
+  línea, y desde M.9.0d **se ve como el hueco que es**, ancho en proporción al tiempo;
+- **una observación de baja cobertura** trae dato de poca superficie: el punto va hueco.
 
-El índice va en la clave del pedido: cambiarlo es otro pedido, y la respuesta del anterior
-que llegue tarde no se pinta como si fuera la nueva.
+El índice y la cadencia van en la clave del pedido: cambiar cualquiera de los dos es otro
+pedido, y la respuesta del anterior que llegue tarde no se pinta como si fuera la nueva.
+
+### El eje es una fecha, y el interruptor de cadencia (M.9.0d, 2026-09-25)
+
+Desde `s2-pasada-v2` el worker guarda **una fila por pasada del satélite** —una mediana de
+3 por mes, hasta 8— en vez de una por mes (`DECISIONS #70` del worker). El panel pasó a
+poder mostrar las dos series:
+
+| Cadencia | Qué pide | Qué es un punto |
+|---|---|---|
+| **Mensual** (arranca elegida) | `?cadencia=mensual` | el mes: la mediana de las pasadas, que **agrega la API** |
+| **Por pasada** | `?cadencia=pasada` | una pasada, con su fecha de adquisición |
+
+**El eje pasó a ser una fecha, y sin eso el interruptor no serviría de nada.** Antes cada
+punto ocupaba una posición fija —el eje era el **número de la fila**—, y con filas mensuales
+eso engañaba poco porque los meses vienen parejos. Las pasadas no: tres en marzo y una en
+junio. Repartidas a paso fijo, junio ocuparía el mismo ancho que marzo, y la serie diría
+algo que no pasó. El gráfico ya sabía dibujar huecos, así que **el cambio es del eje y no
+del dibujo**.
+
+Lo que se movió con eso: **las marcas del eje salen del calendario** —bordes de mes, de
+trimestre o de año según el tramo, y de día en una serie de pocas semanas— y no de una de
+cada N filas. Así la distancia entre dos etiquetas **es** el tiempo que pasó.
+
+Las cuentas del eje viven en [`src/lib/serie.ts`](../src/lib/serie.ts) y tienen tests
+(`DECISIONS #40`), porque **un eje mal armado no falla: miente**. Dibuja una serie
+perfectamente creíble y nadie mira dos veces un gráfico que se ve bien.
+
+**De cuántas observaciones salió cada punto, en el gráfico.** Cada fila trae `agregadas`, y
+con `mensual` un mes puede ser la mediana de seis pasadas o de una: `DECISIONS #48` de
+Geocore lo dice así —dos meses con el mismo nombre no son igual de confiables—. Va en una
+tira de barras bajo el eje, **no** en el tamaño del punto, porque el punto ya codifica la
+cobertura y dos cosas en el mismo canal no se leen. Con `pasada` la tira no se dibuja:
+`agregadas` es 1 en todas y serían barras iguales.
+
+**Dos avisos que el panel muestra en vez de esconder:**
+
+- **la serie llegó recortada** (`truncado`). El techo de `limit` se lleva las mediciones más
+  viejas, así que lo que se ve es la ventana reciente. Con una parcela y un índice no
+  debería pasar —son unas 768 filas por parcela cada dos años contando los cuatro índices, y
+  el panel pide 2000—, así que si aparece es que algo creció más de lo previsto;
+- **hay filas de dos recetas** en la serie. Un mes reprocesado sale de la API con
+  `receta: "s2-mensual-v1,s2-pasada-v2"`, y la API lo muestra **a propósito**: son dos
+  mediciones distintas en el mismo punto, no el mismo dato dos veces.
+
+**Lo que el panel no hace: agregar.** El número mensual es la mediana de las medianas por
+pasada y **lo calcula la API** (`DECISIONS #48` de Geocore). El front elige la cadencia.
+
+**Y lo que no pide: `?coberturaMinima=`.** Sin el parámetro la API no filtra nada, que es lo
+que corresponde acá: una medición de poca cobertura se dibuja —con el punto hueco, o como
+hueco si no trae valor—, y filtrarla la haría desaparecer en vez de mostrarse.
 
 ### Por qué el gráfico está dibujado así
 
@@ -63,6 +116,8 @@ que llegue tarde no se pinta como si fuera la nueva.
   0,30 y 0,60 dibujado en \[-1, 1\] es una línea plana que no dice nada. La contra: **dos
   gráficos no se comparan a ojo**, porque cada uno tiene su escala. El mapa sí usa escala
   fija por índice, justamente para lo contrario.
+- **El eje horizontal es el tiempo** (M.9.0d), y de ahí sale lo demás: el hueco de un
+  período sin procesar es ancho de verdad, y dos pasadas de la misma semana quedan juntas.
 - **El punto hueco es una segunda codificación además del color**: se lee sin distinguir
   colores y sobrevive a una impresión en blanco y negro.
 - **La tabla de números, plegada debajo, no es un extra**: la banda p10–p90 es un relleno de
