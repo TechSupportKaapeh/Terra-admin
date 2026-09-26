@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { LayerDetail, Parcela, Rancho } from '@/lib/api'
-import { escalaDe, PALETAS } from '@/lib/indices'
+import { escalaDe, PALETAS, rescaleDe } from '@/lib/indices'
 
 /**
  * El mapa de un mes del rancho: el ráster del índice, con el rancho y sus parcelas encima.
@@ -29,7 +29,9 @@ export default function MapaRancho({ rancho, parcelas, capa, indice, token, alto
   // Sin capa o sin token no hay ráster que pedir: el mapa muestra igual los polígonos,
   // que es lo que deja ver *dónde* está el rancho mientras el resto carga.
   const urlTiles = capa && token
-    ? `${capa.tiles[0]}&${new URLSearchParams({ rescale: `${min},${max}`, colormap_name: escala.paleta, token })}`
+    // El rango va en las unidades del COG: un multibanda guarda ×10.000 (M.9.7), y sin
+    // escalarlo el rancho se pinta entero del color del extremo alto.
+    ? `${capa.tiles[0]}&${new URLSearchParams({ rescale: rescaleDe([min, max], capa.escala), colormap_name: escala.paleta, token })}`
     : null
 
   const anillo = rancho.coordinates.map(c => [c.lat, c.lng] as [number, number])
