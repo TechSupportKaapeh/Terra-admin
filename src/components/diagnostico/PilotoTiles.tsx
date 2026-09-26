@@ -7,10 +7,9 @@ import {
   type Tenant, type LayerSummary, type LayerDetail,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { escalaDe, PALETAS } from '@/lib/indices'
+import { escalaDe, fueraDeEscala, PALETAS } from '@/lib/indices'
 import { useMapToken } from '@/lib/useMapToken'
 import DeslizadorDeMeses from '@/components/mapas/DeslizadorDeMeses'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Selector from '@/components/Selector'
 import Estado from './Estado'
@@ -29,8 +28,17 @@ import Estado from './Estado'
  *   4. /cog/tiles/…           la plantilla + rescale + colormap_name + token
  *
  * Lo que la plantilla de Geocore NO trae y agrega el front: rescale y
- * colormap_name (el COG guarda NDVI crudo en float32, números y no colores) y
+ * colormap_name (el COG guarda el índice crudo en float32, números y no colores) y
  * el token. Ver tileserver-titiler/docs/viaje-de-un-tile.html.
+ *
+ * **El rescale y la paleta son los de `src/lib/indices.ts`, y no se mueven a mano**
+ * (poda del 2026-09-25). Hasta ahí esta pantalla tenía dos campos de rescale, tres
+ * atajos y un desplegable de paleta. Hacían falta cuando todos los índices se pintaban
+ * con la escala del NDVI; desde que cada uno tiene la suya, lo único que dejaban hacer
+ * era pintar un COG **distinto de como lo pinta el mapa del rancho**, que es justo lo
+ * que no ayuda a contestar "¿por qué no se ve?". Lo que sí ayuda —que el ráster caiga
+ * fuera de la escala de su índice— ahora se dice en un aviso, en vez de dejar que se
+ * descubra moviendo el rango.
  *
  * Desde M.8.1 esta pantalla es además donde se verifica el aislamiento entre
  * tenants: el token lleva `tenant_id` y el tileserver contesta 403 a cualquier COG
@@ -39,7 +47,7 @@ import Estado from './Estado'
  */
 
 interface CogInfo { dtype: string; count: number; bounds: [number, number, number, number]; minzoom: number; maxzoom: number; width: number; height: number }
-interface BandStats { min: number; max: number; percentile_2: number; percentile_98: number; valid_percent?: number }
+interface BandStats { min: number; max: number; valid_percent?: number }
 interface Respuesta { status: number; cuerpo: unknown; bytes?: number }
 
 
@@ -94,6 +102,12 @@ function explicar(status: number, detalle: string): string {
     default: return 'Mirá el log del tileserver: el reporte de arranque dice si MinIO conecta.'
   }
 }
+
+/**
+ * Qué quiere decir un valor **de vegetación**. Sólo para NDVI y EVI: las categorías son de
+ * esos dos, y aplicadas a un NDMI de 0,5 dirían "vegetación densa" de algo que es humedad.
+ */
+const CON_CATEGORIA = new Set(['ndvi', 'evi'])
 
 function categoria(v: number): string {
   if (v < 0) return 'agua o suelo desnudo'
@@ -168,9 +182,6 @@ export default function PilotoTiles() {
   const { token, restante, tokenNuevo, asegurarToken } = useMapToken(tenantId)
   const [info, setInfo] = useState<CogInfo | null>(null)
   const [stats, setStats] = useState<BandStats | null>(null)
-  const [rmin, setRmin] = useState('-1')
-  const [rmax, setRmax] = useState('1')
-  const [cmap, setCmap] = useState('rdylgn')
   const [opacidad, setOpacidad] = useState(0.85)
   const [aviso, setAviso] = useState<string | null>(null)
   const [sondeo, setSondeo] = useState<{ estado: string; texto: string } | null>(null)
@@ -186,11 +197,11 @@ export default function PilotoTiles() {
 
   const plantilla = capa?.tiles[0] ?? null
   const partes = plantilla ? partirPlantilla(plantilla) : null
-  const min = parseFloat(rmin)
-  const max = parseFloat(rmax)
-  const rangoValido = Number.isFinite(min) && Number.isFinite(max) && min < max
-  const urlTiles = plantilla && token && rangoValido
-    ? `${plantilla}&${new URLSearchParams({ rescale: `${min},${max}`, colormap_name: cmap, token })}`
+  // La escala del índice, la misma que usa el mapa del rancho: se deriva, no se guarda.
+  const escala = metrica ? escalaDe(metrica) : null
+  const [min, max] = escala?.rango ?? [0, 1]
+  const urlTiles = plantilla && token && escala
+    ? `${plantilla}&${new URLSearchParams({ rescale: `${min},${max}`, colormap_name: escala.paleta, token })}`
     : null
 
   async function elegirTenant(id: string) {
@@ -236,20 +247,12 @@ export default function PilotoTiles() {
   }
 
   /**
-   * Al elegir métrica: se salta a la fecha más nueva y **se carga la escala de ese índice**.
-   *
-   * Los cuatro no miden lo mismo ni viven en el mismo rango, y pintarlos con la escala del
-   * NDVI da mapas que parecen comparables y no lo son (`src/lib/indices.ts`). Los controles
-   * de abajo siguen: esto es de dónde arranca.
+   * Al elegir métrica se salta a la fecha más nueva. La escala no se carga: sale de la
+   * métrica en cada render (`escala`, arriba), así que no hay un estado que pueda quedar
+   * con el rango del índice anterior.
    */
   function elegirMetrica(indice: string) {
     setMetrica(indice)
-
-    const escala = escalaDe(indice)
-    setRmin(String(escala.rango[0]))
-    setRmax(String(escala.rango[1]))
-    setCmap(escala.paleta)
-
     const lista = fechasDe(capas, entidad, indice)
     irAFecha(lista.length - 1, lista)
   }
@@ -357,19 +360,23 @@ export default function PilotoTiles() {
       return
     }
     const v = (r.cuerpo as { values?: (number | null)[] } | null)?.values?.[0]
-    setValor(v == null || Number.isNaN(v) ? 'Sin dato en ese píxel (máscara).' : `${v.toFixed(3)} · ${categoria(v)}`)
+    if (v == null || Number.isNaN(v)) { setValor('Sin dato en ese píxel (máscara).'); return }
+    setValor(CON_CATEGORIA.has(metrica) ? `${v.toFixed(3)} · ${categoria(v)}` : v.toFixed(3))
   }
 
   const avisosCog: string[] = []
   if (info && !info.dtype.startsWith('float')) {
-    avisosCog.push(`Es ${info.dtype}, no float: no parece un índice crudo, y rescale -1 … 1 probablemente no le corresponda.`)
+    avisosCog.push(`Es ${info.dtype}, no float: no parece un índice crudo, y la escala del índice no le corresponde.`)
   }
   if (stats && stats.min === stats.max) {
     avisosCog.push(`Todos los píxeles valen ${stats.min}: se va a ver un cuadrado de un solo color.`)
   } else if (stats?.valid_percent != null && stats.valid_percent < 1) {
     avisosCog.push(`Sólo el ${stats.valid_percent.toFixed(2)} % de los píxeles tiene dato: en el mapa van a ser unos pocos píxeles.`)
   }
-  const contrasteValido = !!stats && stats.percentile_2 < stats.percentile_98
+  // Lo que antes se descubría moviendo el rescale a mano (`fueraDeEscala`, con tests).
+  const lado = stats && escala && stats.min !== stats.max ? fueraDeEscala(stats, escala) : null
+  if (lado === 'abajo') avisosCog.push(`Todo el ráster está por debajo de la escala de ${metrica.toUpperCase()} (máx ${stats!.max.toFixed(3)}, la escala arranca en ${min}): se pinta entero del color del extremo bajo.`)
+  if (lado === 'arriba') avisosCog.push(`Todo el ráster está por encima de la escala de ${metrica.toUpperCase()} (mín ${stats!.min.toFixed(3)}, la escala llega a ${max}): se pinta entero del color del extremo alto.`)
 
   return (
     <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
@@ -469,48 +476,12 @@ export default function PilotoTiles() {
           )}
         </div>
 
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label className="text-xs">rescale mín</Label>
-              <Input className="h-8 font-mono text-sm" type="number" step="0.01" value={rmin} onChange={e => setRmin(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">rescale máx</Label>
-              <Input className="h-8 font-mono text-sm" type="number" step="0.01" value={rmax} onChange={e => setRmax(e.target.value)} />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => { setRmin('-1'); setRmax('1') }}>Fijo -1 … 1</Button>
-            <Button variant="outline" size="sm" onClick={() => { setRmin('0'); setRmax('0.9') }}>Vegetación 0 … 0.9</Button>
-            <Button
-              variant="outline" size="sm" disabled={!contrasteValido}
-              onClick={() => { if (stats) { setRmin(stats.percentile_2.toFixed(3)); setRmax(stats.percentile_98.toFixed(3)) } }}
-            >
-              Contraste p2 … p98
-            </Button>
-          </div>
-          {!rangoValido && <p className="text-xs text-destructive">El mínimo tiene que ser menor que el máximo. No se pinta.</p>}
-          <p className="text-xs text-muted-foreground">
-            Rango fijo: el mismo verde es el mismo NDVI en todas las parcelas. Contraste: más detalle
-            dentro de una, pero los colores dejan de ser comparables entre parcelas.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs">Paleta</Label>
-            <Selector
-              items={Object.keys(PALETAS).map(p => ({ value: p, label: p }))}
-              value={cmap}
-              onValueChange={v => { if (v) setCmap(v) }}
-              className="w-full"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Opacidad</Label>
-            <input className="w-full accent-primary" type="range" min={0.2} max={1} step={0.05} value={opacidad} onChange={e => setOpacidad(Number(e.target.value))} />
-          </div>
+        {/* La escala no se elige: es la del índice, la misma del mapa del rancho, así que lo
+            que se ve acá es lo que ve quien trabaja. La opacidad sí se queda: comparar el
+            ráster contra la imagen de abajo es parte de entender por qué no se ve. */}
+        <div className="space-y-1">
+          <Label className="text-xs">Opacidad</Label>
+          <input className="w-full accent-primary" type="range" min={0.2} max={1} step={0.05} value={opacidad} onChange={e => setOpacidad(Number(e.target.value))} />
         </div>
 
         {info && (
@@ -559,22 +530,24 @@ export default function PilotoTiles() {
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="w-56">
-            <div className="relative h-3 rounded-sm border" style={{ background: `linear-gradient(90deg,${PALETAS[cmap]})` }}>
+            <div
+              className="relative h-3 rounded-sm border"
+              style={{ background: escala ? `linear-gradient(90deg,${PALETAS[escala.paleta]})` : undefined }}
+            >
               {/* El centro, cuando significa algo: en NDMI el 0 separa seco de húmedo. Sin
                   la marca, una rampa divergente se lee como si fuera de magnitud. */}
-              {metrica && rangoValido && escalaDe(metrica).centro !== undefined
-                && escalaDe(metrica).centro! > min && escalaDe(metrica).centro! < max && (
+              {escala?.centro !== undefined && (
                 <span
                   className="absolute top-0 h-3 w-px bg-foreground"
-                  style={{ left: `${((escalaDe(metrica).centro! - min) / (max - min)) * 100}%` }}
-                  title={`${escalaDe(metrica).centro}`}
+                  style={{ left: `${((escala.centro - min) / (max - min)) * 100}%` }}
+                  title={`${escala.centro}`}
                 />
               )}
             </div>
             <div className="mt-0.5 flex justify-between font-mono text-xs text-muted-foreground tabular-nums">
-              <span>{rangoValido ? min : '—'}</span>
-              <span>{metrica ? `${metrica.toUpperCase()} · ${escalaDe(metrica).que}` : 'sin métrica'}</span>
-              <span>{rangoValido ? max : '—'}</span>
+              <span>{escala ? min : '—'}</span>
+              <span>{escala ? `${metrica.toUpperCase()} · ${escala.que}` : 'sin métrica'}</span>
+              <span>{escala ? max : '—'}</span>
             </div>
           </div>
           <p className="text-sm"><span className="text-muted-foreground">Click en el mapa: </span>{valor ?? 'el valor del píxel sale de /cog/point.'}</p>
@@ -590,7 +563,7 @@ export default function PilotoTiles() {
             <p><span className="text-muted-foreground">Geocore da: </span>{plantilla}</p>
             <p>
               <span className="text-muted-foreground">El mapa pide: </span>{plantilla}
-              <span className="text-violet-700 dark:text-violet-300">&amp;rescale={rangoValido ? `${min},${max}` : '…'}&amp;colormap_name={cmap}</span>
+              <span className="text-violet-700 dark:text-violet-300">&amp;rescale={escala ? `${min},${max}` : '…'}&amp;colormap_name={escala?.paleta ?? '…'}</span>
               {/* El token recortado: esta pantalla termina en capturas. */}
               <span className="text-amber-700 dark:text-amber-300">&amp;token={token ? `${token.slice(0, 12)}…(${token.length})` : '…'}</span>
             </p>

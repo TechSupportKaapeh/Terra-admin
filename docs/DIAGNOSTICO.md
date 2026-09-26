@@ -38,9 +38,13 @@ copia—, como ya pasa con `SerieTemporal`, `useMapToken`, `DeslizadorDeMeses` y
   hueco y nada más—. Tiles lo vuelve a pedir con `fetch` para leer el error y traducirlo;
 - **muestra capas que el mapa del rancho no muestra**: las de **parcela** y las de la capa
   vieja. El mapa del rancho filtra a propósito las capas del rancho;
-- **deja mover el rescale y la paleta**, que es lo que hace falta para mirar el dato crudo.
-  El mapa del rancho usa la escala fija de cada índice, justamente para que el mismo verde
-  sea siempre el mismo valor.
+- **dice qué hay en el COG**: `/cog/info` y `/cog/statistics`, con avisos para lo que se ve
+  mal sin estar roto —un ráster de un solo valor, casi sin píxeles con dato, o **entero
+  fuera de la escala de su índice**—, el valor de un píxel con un clic, y la URL que se
+  pide armada a la vista.
+
+Hasta el 2026-09-25 había un cuarto motivo: **dejaba mover el rescale y la paleta a mano**.
+Se podó (ver «Tiles, después de la poda», abajo).
 
 ## Tiles — el catálogo (2026-09-20)
 
@@ -80,8 +84,9 @@ Tres cosas que no son obvias:
 ### Cada índice con su escala
 
 El COG guarda el índice **crudo en float32** —números, no colores—, y la plantilla de tiles
-sale de Geocore sin `rescale` ni `colormap_name`: los agrega el front. Al elegir la métrica,
-el piloto carga la escala de ese índice desde `src/lib/indices.ts`:
+sale de Geocore sin `rescale` ni `colormap_name`: los agrega el front. El piloto pinta con la
+escala de la métrica elegida, que sale de `src/lib/indices.ts` —la misma que usa el mapa del
+rancho—:
 
 | Índice | Qué mide | Rango | Paleta |
 |---|---|---|---|
@@ -103,8 +108,8 @@ que su leyenda lleva una marca en el 0. Sin ella, una rampa divergente se lee co
 de magnitud.
 
 Las paletas son la convención agronómica (decisión del usuario, 2026-09-20): es lo que quien
-mira ya sabe leer. Los controles de `rescale` y paleta siguen estando: la tabla es de dónde
-arranca, no una jaula.
+mira ya sabe leer. Desde la poda del 2026-09-25 la tabla es **la** escala, también acá: no
+hay controles para moverla.
 
 ## Datos (2026-09-20)
 
@@ -132,9 +137,7 @@ Esta solapa quedó con lo que no tiene otro lugar: **el inventario**.
 
 - **Cruzar los `.tif` del bucket con las filas de `layers`**: objetos sin fila y filas sin
   objeto. Hoy el inventario cuenta lo que dice la base, y confía en que el bucket coincida.
-- **Podar Tiles.** Son 672 líneas, el archivo más grande del panel, y parte de eso —el
-  rescale a mano, la paleta— puede que convenga sacarlo en vez de mantenerlo ahora que
-  cada índice tiene su escala. Lo que **sí** se queda es lo de abajo.
+- ~~**Podar Tiles.**~~ Hecho el 2026-09-25: ver «Tiles, después de la poda», al final.
 
 ## Tiles, después de M.8.1 (2026-09-20)
 
@@ -157,3 +160,34 @@ Dos cosas que hay que saber para leer lo que muestra:
 - **Al cambiar de tenant, el token anterior deja de contar en el acto.** No se limpia con
   un efecto: `tokenPara()` lo deriva, así que no existe el render en el que el token de A
   se usaría contra los tiles de B.
+
+## Tiles, después de la poda (2026-09-25)
+
+**Se fueron el rescale a mano, sus tres atajos (`Fijo -1 … 1`, `Vegetación 0 … 0.9`,
+`Contraste p2 … p98`) y el desplegable de paleta.** La escala es la de `src/lib/indices.ts`
+para la métrica elegida, la misma que usa el mapa del rancho, y se deriva en cada render: no
+hay un estado que pueda quedar con el rango del índice anterior.
+
+**Por qué ya no hacían falta.** Existían cuando todos los índices se pintaban con la escala
+del NDVI, y mover el rango era la única forma de ver un NDMI. Desde que cada índice tiene la
+suya, lo único que dejaban hacer era pintar un COG **distinto de como lo ve quien trabaja**,
+y eso no contesta «¿por qué no se ve?»: lo complica.
+
+**Lo que sí servía de esos controles se volvió un aviso.** Mover el rango a mano era cómo se
+descubría que un ráster caía **entero** fuera de la escala de su índice —TiTiler lo pinta
+saturado al extremo y se ve de un solo color sin que el dato lo sea—. Ahora lo dice
+`fueraDeEscala` (en `src/lib/indices.ts`, con tests), al lado de los dos avisos que ya había:
+el ráster de un solo valor y el de casi ningún píxel con dato.
+
+**Lo que se quedó**: la cascada, el deslizador de fechas, el token con su cuenta regresiva,
+`/cog/info` y `/cog/statistics`, la sonda del tile que falla y `explicar()`, el valor del
+píxel con un clic, la opacidad —comparar el ráster con la imagen de abajo es parte de
+entender por qué no se ve— y la URL armada a la vista.
+
+**Y un arreglo de paso**: el valor del píxel decía la categoría de vegetación («vegetación
+densa») para **cualquier** métrica. Un NDMI de 0,5 es humedad, no vegetación: la categoría
+ahora sale sólo para NDVI y EVI.
+
+El archivo pasó de 602 a 575 líneas. Son pocas porque lo que se podó es **superficie** —
+cinco controles y tres estados— y entró un aviso con su porqué; el número de la nota vieja
+(672) era de antes de que M.8.1 sacara el token a `useMapToken`.

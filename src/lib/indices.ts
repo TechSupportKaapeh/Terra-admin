@@ -10,8 +10,12 @@
  * un NDVI de 0,2 es casi suelo desnudo.
  *
  * Las paletas son la **convención agronómica** (decisión del usuario, 2026-09-20): es lo que
- * quien mira ya sabe leer. Los controles de la pestaña Tiles siguen estando: esto es de
- * dónde arranca, no una jaula.
+ * quien mira ya sabe leer.
+ *
+ * **Desde el 2026-09-25 es la única escala del panel**: la pestaña Tiles del Diagnóstico
+ * dejaba moverla a mano, y se podó. Pintar un COG distinto de como lo pinta el mapa del
+ * rancho no ayudaba a contestar "¿por qué no se ve?"; lo que sí ayudaba —que el ráster
+ * caiga entero fuera de la escala— lo dice {@link fueraDeEscala}.
  */
 
 /**
@@ -58,4 +62,24 @@ export const ESCALAS: Record<string, EscalaDeIndice> = {
 /** La escala de un índice; para uno que no esté en la tabla, la de vegetación. */
 export function escalaDe(indice: string): EscalaDeIndice {
   return ESCALAS[indice.toLowerCase()] ?? { que: indice, rango: [0, 0.8], paleta: 'rdylgn' }
+}
+
+/**
+ * De qué lado de la escala cae un ráster **entero**, o `null` si la escala lo corta.
+ *
+ * Es lo que antes se descubría en Diagnóstico → Tiles moviendo el rescale a mano: un COG
+ * cuyos valores caen todos de un lado de la escala se pinta **entero del color del
+ * extremo**, y se ve "de un solo color" sin que el dato lo sea. Desde que la escala es fija
+ * (poda del 2026-09-25), se dice en vez de dejar que se descubra.
+ *
+ * Un ráster de un solo valor no entra acá: ese ya tiene su aviso, y es otro problema.
+ */
+export function fueraDeEscala(
+  valores: { min: number; max: number },
+  escala: EscalaDeIndice,
+): 'abajo' | 'arriba' | null {
+  const [desde, hasta] = escala.rango
+  if (valores.max <= desde) return 'abajo'
+  if (valores.min >= hasta) return 'arriba'
+  return null
 }
