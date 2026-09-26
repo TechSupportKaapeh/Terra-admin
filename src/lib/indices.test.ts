@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ESCALAS, escalaDe, fueraDeEscala, PALETAS } from '@/lib/indices'
+import { ESCALAS, escalaDe, fueraDeEscala, PALETAS, rescaleDe, valorDelIndice } from '@/lib/indices'
 
 /**
  * Cómo se pinta cada índice (M.7.6).
@@ -78,5 +78,38 @@ describe('fueraDeEscala', () => {
 
   it('NDMI negativo NO está fuera de escala: su escala es divergente y arranca en −0,4', () => {
     expect(fueraDeEscala({ min: -0.3, max: -0.1 }, escalaDe('ndmi'))).toBeNull()
+  })
+})
+
+describe('rescaleDe', () => {
+  // M.9.7 (Geocore DECISIONS #53): el COG multibanda guarda el índice ×10.000. Pedir el rango
+  // sin escalar pinta todo del color del extremo, y no da ningún error: se ve "de un solo color".
+
+  it('un COG de antes, sin escala, pide el rango tal cual', () => {
+    expect(rescaleDe(escalaDe('ndvi').rango, null)).toBe('0,0.8')
+    expect(rescaleDe(escalaDe('ndvi').rango)).toBe('0,0.8')
+  })
+
+  it('un COG multibanda pide el rango multiplicado por su escala', () => {
+    expect(rescaleDe(escalaDe('ndvi').rango, 10000)).toBe('0,8000')
+    expect(rescaleDe(escalaDe('ndre').rango, 10000)).toBe('0,5000')
+  })
+
+  it('el rango negativo de NDMI también se escala', () => {
+    expect(rescaleDe(escalaDe('ndmi').rango, 10000)).toBe('-4000,4000')
+  })
+
+  it('sin ruido de float en la URL', () => {
+    expect(rescaleDe([0.1, 0.3], 3)).toBe('0.3,0.9')
+  })
+})
+
+describe('valorDelIndice', () => {
+  it('pasa un valor guardado como entero a las unidades del índice', () => {
+    expect(valorDelIndice(6150, 10000)).toBeCloseTo(0.615)
+  })
+
+  it('sin escala lo deja igual', () => {
+    expect(valorDelIndice(0.615, null)).toBe(0.615)
   })
 })

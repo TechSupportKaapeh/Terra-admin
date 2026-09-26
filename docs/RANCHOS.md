@@ -167,6 +167,12 @@ y el mes.
   capa por mes.
 - **Sólo están los meses con ráster.** Un mes sin un solo píxel limpio no tiene COG
   (`DECISIONS #51` del worker), así que la lista tiene huecos a propósito.
+- **El COG multibanda (M.9.7, 2026-09-26):** un archivo puede traer los cuatro índices como
+  bandas, guardados como **enteros ×10.000**. La capa trae su `escala` (Geocore `DECISIONS #53`)
+  y el panel **multiplica el rango del índice por ella** antes de pedir el tile
+  (`rescaleDe` en `indices.ts`, con tests). Sin eso, un NDVI de 0,8 guardado como 8000 pinta el
+  rancho entero del color del extremo alto, y no hay ningún error. La banda ya viene en la
+  plantilla (`bidx`). Una capa sin escala —las de antes— se pinta como siempre.
 - **El color lo decide el panel** (`src/lib/indices.ts`): el COG guarda el índice crudo en
   float32 y la plantilla de Geocore sale sin `rescale` ni `colormap_name`. Cada índice tiene
   su escala, porque NDVI y NDMI pintados con el mismo rango dan dos mapas que parecen

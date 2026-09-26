@@ -83,3 +83,23 @@ export function fueraDeEscala(
   if (valores.min >= hasta) return 'arriba'
   return null
 }
+
+/**
+ * El `rescale` de TiTiler para un rango, en las unidades en que está guardado el COG.
+ *
+ * Desde M.9.7 los COG guardan el índice como **entero ×10.000** (Geocore `DECISIONS #53`), y la
+ * capa trae esa `escala`. Un NDVI de 0,8 guardado así es 8000: pedir `rescale=0,0.8` pintaría
+ * todo el rancho del color del extremo alto, sin ningún error. Sin escala (`null`, los COG de
+ * antes, en decimales) el rango va tal cual.
+ */
+export function rescaleDe(rango: readonly [number, number], escala?: number | null): string {
+  const factor = escala ?? 1
+  // `toPrecision` saca el ruido de float: 0,1 × 3 no es 0,3 en binario.
+  const escalar = (v: number) => Number((v * factor).toPrecision(12))
+  return `${escalar(rango[0])},${escalar(rango[1])}`
+}
+
+/** Un valor leído del COG —un píxel, un mínimo— en las unidades del índice. */
+export function valorDelIndice(crudo: number, escala?: number | null): number {
+  return crudo / (escala ?? 1)
+}

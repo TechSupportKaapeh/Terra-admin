@@ -346,7 +346,15 @@ export interface Diagnostico {
 }
 export interface LayerSummary { id: string; tenantId: string; parcelaId: string | null; ranchoId: string | null; product: string; storageKey: string; acquiredTs: string; source: string; createdAt: string }
 /** `tiles[0]` es la plantilla de TiTiler SIN rescale, colormap_name ni token: los agrega el front. */
-export interface LayerDetail { layerId: string; indice: string; fecha: string; tiles: string[]; bounds: number[]; minzoom: number; maxzoom: number }
+/**
+ * `escala`: por cuánto está multiplicado el valor guardado en el COG (10000 en los multibanda de
+ * M.9.7, Geocore `DECISIONS #53`); `null` = en decimales, los COG de antes. El `rescale` se
+ * multiplica por esto: `rescaleDe` en `indices.ts`. `bandas` ya viene en la plantilla como `bidx`.
+ */
+export interface LayerDetail {
+  layerId: string; indice: string; fecha: string; tiles: string[]; bounds: number[]; minzoom: number; maxzoom: number
+  escala?: number | null; bandas?: number[] | null
+}
 
 // Procesos del worker — TerraStaff
 //

@@ -7,7 +7,7 @@ import {
   type Tenant, type LayerSummary, type LayerDetail,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { escalaDe, fueraDeEscala, PALETAS } from '@/lib/indices'
+import { escalaDe, fueraDeEscala, PALETAS, rescaleDe, valorDelIndice } from '@/lib/indices'
 import { useMapToken } from '@/lib/useMapToken'
 import DeslizadorDeMeses from '@/components/mapas/DeslizadorDeMeses'
 import { Label } from '@/components/ui/label'
@@ -200,8 +200,16 @@ export default function PilotoTiles() {
   // La escala del índice, la misma que usa el mapa del rancho: se deriva, no se guarda.
   const escala = metrica ? escalaDe(metrica) : null
   const [min, max] = escala?.rango ?? [0, 1]
+  // M.9.7: un COG multibanda guarda el índice ×10.000 (`capa.escala`). El rango del tile va en
+  // esas unidades, y lo que devuelve TiTiler —el píxel, el mínimo y el máximo— vuelve a las del
+  // índice antes de mostrarse o de compararse con la escala.
+  const escalaDelCog = capa?.escala ?? null
+  const rescale = rescaleDe([min, max], escalaDelCog)
+  const valores = stats
+    ? { ...stats, min: valorDelIndice(stats.min, escalaDelCog), max: valorDelIndice(stats.max, escalaDelCog) }
+    : null
   const urlTiles = plantilla && token && escala
-    ? `${plantilla}&${new URLSearchParams({ rescale: `${min},${max}`, colormap_name: escala.paleta, token })}`
+    ? `${plantilla}&${new URLSearchParams({ rescale, colormap_name: escala.paleta, token })}`
     : null
 
   async function elegirTenant(id: string) {
@@ -359,24 +367,26 @@ export default function PilotoTiles() {
       setValor(`Error ${r.status || 'sin respuesta'}: ${detalleDe(r.cuerpo)}`)
       return
     }
-    const v = (r.cuerpo as { values?: (number | null)[] } | null)?.values?.[0]
-    if (v == null || Number.isNaN(v)) { setValor('Sin dato en ese píxel (máscara).'); return }
+    const crudo = (r.cuerpo as { values?: (number | null)[] } | null)?.values?.[0]
+    if (crudo == null || Number.isNaN(crudo)) { setValor('Sin dato en ese píxel (máscara).'); return }
+    const v = valorDelIndice(crudo, escalaDelCog)
     setValor(CON_CATEGORIA.has(metrica) ? `${v.toFixed(3)} · ${categoria(v)}` : v.toFixed(3))
   }
 
   const avisosCog: string[] = []
-  if (info && !info.dtype.startsWith('float')) {
+  // Un entero es lo esperado en un COG multibanda (tiene escala); sin escala, es sospechoso.
+  if (info && !info.dtype.startsWith('float') && !escalaDelCog) {
     avisosCog.push(`Es ${info.dtype}, no float: no parece un índice crudo, y la escala del índice no le corresponde.`)
   }
-  if (stats && stats.min === stats.max) {
-    avisosCog.push(`Todos los píxeles valen ${stats.min}: se va a ver un cuadrado de un solo color.`)
+  if (valores && valores.min === valores.max) {
+    avisosCog.push(`Todos los píxeles valen ${valores.min}: se va a ver un cuadrado de un solo color.`)
   } else if (stats?.valid_percent != null && stats.valid_percent < 1) {
     avisosCog.push(`Sólo el ${stats.valid_percent.toFixed(2)} % de los píxeles tiene dato: en el mapa van a ser unos pocos píxeles.`)
   }
   // Lo que antes se descubría moviendo el rescale a mano (`fueraDeEscala`, con tests).
-  const lado = stats && escala && stats.min !== stats.max ? fueraDeEscala(stats, escala) : null
-  if (lado === 'abajo') avisosCog.push(`Todo el ráster está por debajo de la escala de ${metrica.toUpperCase()} (máx ${stats!.max.toFixed(3)}, la escala arranca en ${min}): se pinta entero del color del extremo bajo.`)
-  if (lado === 'arriba') avisosCog.push(`Todo el ráster está por encima de la escala de ${metrica.toUpperCase()} (mín ${stats!.min.toFixed(3)}, la escala llega a ${max}): se pinta entero del color del extremo alto.`)
+  const lado = valores && escala && valores.min !== valores.max ? fueraDeEscala(valores, escala) : null
+  if (lado === 'abajo') avisosCog.push(`Todo el ráster está por debajo de la escala de ${metrica.toUpperCase()} (máx ${valores!.max.toFixed(3)}, la escala arranca en ${min}): se pinta entero del color del extremo bajo.`)
+  if (lado === 'arriba') avisosCog.push(`Todo el ráster está por encima de la escala de ${metrica.toUpperCase()} (mín ${valores!.min.toFixed(3)}, la escala llega a ${max}): se pinta entero del color del extremo alto.`)
 
   return (
     <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
@@ -489,7 +499,7 @@ export default function PilotoTiles() {
             <dt className="text-muted-foreground">dtype</dt><dd>{info.dtype}</dd>
             <dt className="text-muted-foreground">tamaño</dt><dd>{info.width} × {info.height} px</dd>
             <dt className="text-muted-foreground">zoom</dt><dd>{info.minzoom} … {info.maxzoom} (nativo)</dd>
-            {stats && <><dt className="text-muted-foreground">mín / máx</dt><dd>{stats.min.toFixed(3)} / {stats.max.toFixed(3)}</dd></>}
+            {valores && <><dt className="text-muted-foreground">mín / máx</dt><dd>{valores.min.toFixed(3)} / {valores.max.toFixed(3)}</dd></>}
             {stats?.valid_percent != null && <><dt className="text-muted-foreground">con dato</dt><dd>{stats.valid_percent.toFixed(2)} %</dd></>}
           </dl>
         )}
@@ -563,7 +573,7 @@ export default function PilotoTiles() {
             <p><span className="text-muted-foreground">Geocore da: </span>{plantilla}</p>
             <p>
               <span className="text-muted-foreground">El mapa pide: </span>{plantilla}
-              <span className="text-violet-700 dark:text-violet-300">&amp;rescale={escala ? `${min},${max}` : '…'}&amp;colormap_name={escala?.paleta ?? '…'}</span>
+              <span className="text-violet-700 dark:text-violet-300">&amp;rescale={escala ? rescale : '…'}&amp;colormap_name={escala?.paleta ?? '…'}</span>
               {/* El token recortado: esta pantalla termina en capturas. */}
               <span className="text-amber-700 dark:text-amber-300">&amp;token={token ? `${token.slice(0, 12)}…(${token.length})` : '…'}</span>
             </p>
