@@ -23,7 +23,7 @@ es peor: nadie mira dos veces un número que se ve bien.
 | `indices.test.ts` | Que cada índice tenga rango y paleta, que el centro caiga dentro del rango, y que **la paleta que pide exista**: si no, la leyenda queda transparente y el mapa dice una cosa y su escala otra, sin ningún error a la vista. Y desde la poda de Tiles (2026-09-25), `fueraDeEscala`: que un ráster **entero** de un lado de la escala se avise —se pinta de un solo color sin que el dato lo sea— y que un NDMI negativo **no** cuente como fuera, porque su escala es divergente |
 | `mapToken.test.ts` | Que el token de un tenant **no se use para otro** (M.8.1: el tileserver contesta 403 a un COG que no cuelgue de `tenants/{tenant del token}/`, y el síntoma sería "el mapa no carga"); que `exp` se lea también con caracteres de base64url; y que "renovar solo" y "reusar el que hay" **no sean la misma regla** |
 | `meta.test.ts` | Que un campo vacío **no se mande** (mandarlo como `""` guardaría un municipio vacío en vez de dejarlo sin dato) y que una altitud de `0` no sea lo mismo que sin altitud |
-| `serie.test.ts` | Que **el eje sea el tiempo y no el número de la fila** (M.9.0d): dos pasadas de la misma semana quedan juntas y el mes sin pasadas queda vacío; que un solo punto —o dos del mismo día, que con la fecha sin hora es lo mismo— no deje el dominio de ancho cero, porque ahí el pixel sale `NaN` y **no se dibuja nada**; que una fecha con hora y sin zona se lea en UTC y no en la hora de quien mira; que una fecha ilegible se cuente y se deje afuera en vez de dibujarse en 1970; y que las marcas del eje caigan en bordes de calendario sin encimarse |
+| `serie.test.ts` | Que **el pedido lleve `coberturaMinima`** (el error del 2026-09-26: sin él, las pasadas tapadas entraban a la serie); que **la línea una cada punto con el siguiente** y el tramo de más de 40 días salga punteado, sin puntear meses seguidos; que **una banda extrema no estire el eje**; que **el eje sea el tiempo y no el número de la fila** (M.9.0d): dos pasadas de la misma semana quedan juntas y el mes sin pasadas queda vacío; que un solo punto —o dos del mismo día, que con la fecha sin hora es lo mismo— no deje el dominio de ancho cero, porque ahí el pixel sale `NaN` y **no se dibuja nada**; que una fecha con hora y sin zona se lea en UTC y no en la hora de quien mira; que una fecha ilegible se cuente y se deje afuera en vez de dibujarse en 1970; y que las marcas del eje caigan en bordes de calendario sin encimarse |
 
 **No hay tests de componentes.** Pedirían jsdom y una librería de render, y el valor
 estaría en otro lado: lo que hoy se rompe en silencio son estas funciones. Si algún día
@@ -70,3 +70,11 @@ El mismo día, con la poda de Tiles, uno más:
 | Qué se rompió | Qué salió en rojo |
 |---|---|
 | `fueraDeEscala` devolviendo `null` en vez de `'abajo'` | `un NDVI entero bajo cero cae por debajo de su escala` |
+
+El 2026-09-26, al corregir la cobertura y unir la línea, tres más:
+
+| Qué se rompió | Qué salió en rojo |
+|---|---|
+| `querySerie` sin mandar `coberturaMinima` | `lleva el mínimo de cobertura cuando se lo pasan…` |
+| `tramosDe` sin marcar nunca un tramo largo | `más de 40 días sin observación útil…` y `en la serie mensual, meses seguidos no se puntean…` |
+| El dominio vertical tomando otra vez la banda p10–p90 | `una banda extrema NO estira el eje…` |

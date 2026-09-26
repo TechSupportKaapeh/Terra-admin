@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import type { Cadencia, Measurement } from '@/lib/api'
 import { escalaDe } from '@/lib/indices'
-import { COBERTURA_BAJA, marcasDeTiempo, serieDe } from '@/lib/serie'
+import { COBERTURA_BAJA, COBERTURA_MINIMA, HUECO_LARGO_MS, marcasDeTiempo, serieDe, tramosDe } from '@/lib/serie'
 
 /**
  * La serie de una parcela: la mediana, con la banda p10–p90 detrás.
@@ -24,14 +24,14 @@ import { COBERTURA_BAJA, marcasDeTiempo, serieDe } from '@/lib/serie'
  *
  * Tres cosas que el dibujo tiene que distinguir, y que son el motivo de que exista:
  *
- * - **un período sin dato** (`valor` null) es un período **procesado** cuya cobertura quedó
- *   bajo el mínimo de la receta que lo escribió: se corta la línea y se marca en el eje, en
- *   vez de interpolar una recta que inventa un valor que nadie midió. Lo escribe
- *   `s2-mensual-v1`; `s2-pasada-v2` ya no descarta al escribir (`DECISIONS #70` del
- *   worker), así que en lo nuevo el valor va siempre y el umbral es de quien lee;
- * - **un período ausente** —ninguna fila— es un período que nadie procesó: con el eje de
- *   fechas eso ahora **se ve como el hueco que es**, ancho en proporción al tiempo que
- *   pasó, y ya no hace falta contar puntos para notarlo;
+ * - **una observación tapada** no llega: el pedido lleva el mínimo de cobertura de la receta
+ *   (`COBERTURA_MINIMA`), porque desde `s2-pasada-v2` el worker guarda todas las pasadas y
+ *   el umbral es de quien lee. Una foto sin la parcela a la vista no dice nada del cultivo;
+ * - **un tramo sin observaciones útiles** se ve como el hueco que es —el eje es una fecha— y
+ *   la línea lo cruza **punteada** si pasan más de 40 días (`HUECO_LARGO_MS`). Hasta el
+ *   2026-09-26 la línea se cortaba en cada punto sin valor; con una fila por pasada eran
+ *   decenas de cortes y la serie no se leía (pedido del usuario). Punteada sigue sin
+ *   inventar: dice que ahí no se midió;
  * - **una observación de baja cobertura** trae dato, pero de poca superficie: el punto va
  *   hueco. Es una segunda codificación además del color, que es lo que pide que se lea sin
  *   color.
@@ -101,20 +101,19 @@ export default function SerieTemporal({ filas, indice, cadencia }: Props) {
     return <p className="text-sm text-muted-foreground">Esta parcela todavía no tiene mediciones de {indice.toUpperCase()}.</p>
   }
 
-  // Los tramos: la línea se corta en cada punto sin dato en vez de saltearlo.
-  const tramos: (typeof puntos)[] = []
-  let tramo: typeof puntos = []
-  for (const p of puntos) {
-    if (p.y === null) { if (tramo.length) tramos.push(tramo); tramo = [] }
-    else tramo.push(p)
-  }
-  if (tramo.length) tramos.push(tramo)
+  // La línea une cada punto con valor con el siguiente (`tramosDe`); el tramo largo va punteado.
+  const tramos = tramosDe(puntos)
 
+  // La banda, en cambio, **sí se corta en un hueco largo**: rellenar dos meses sin foto con un
+  // área p10–p90 es dibujar una dispersión que nadie midió. La línea punteada ya dice que ahí
+  // no hay dato; la banda no tiene cómo decirlo.
   const bandas: (typeof puntos)[] = []
   let banda: typeof puntos = []
   for (const p of puntos) {
-    if (p.p10 === null || p.p90 === null) { if (banda.length > 1) bandas.push(banda); banda = [] }
-    else banda.push(p)
+    const sinBanda = p.p10 === null || p.p90 === null
+    const lejos = banda.length > 0 && p.t - banda[banda.length - 1].t > HUECO_LARGO_MS
+    if (sinBanda || lejos) { if (banda.length > 1) bandas.push(banda); banda = [] }
+    if (!sinBanda) banda.push(p)
   }
   if (banda.length > 1) bandas.push(banda)
 
@@ -135,8 +134,8 @@ export default function SerieTemporal({ filas, indice, cadencia }: Props) {
         </span>{' '}
         <span className="text-muted-foreground">
           · {escalaDe(indice).que} · mediana con banda p10–p90 · {puntos.length}{' '}
-          {porPasada ? 'pasadas' : 'meses'}
-          {sinDato > 0 && ` · ${sinDato} sin dato`}
+          {porPasada ? 'pasadas' : 'meses'} con al menos el {COBERTURA_MINIMA * 100} % de la parcela a la vista
+          {sinDato > 0 && ` · ${sinDato} sin valor`}
           {serie.ilegibles > 0 && ` · ${serie.ilegibles} con fecha ilegible, afuera`}
         </span>
       </figcaption>
@@ -199,24 +198,16 @@ export default function SerieTemporal({ filas, indice, cadencia }: Props) {
               />
             ))}
 
-            {tramos.map((tr, i) => (
-              <path
-                key={i}
-                d={tr.map((q, j) => `${j === 0 ? 'M' : 'L'}${q.x},${q.y}`).join(' ')}
-                fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+            {tramos.map(tr => (
+              <line
+                key={tr.hasta.id}
+                x1={tr.desde.x} y1={tr.desde.y!} x2={tr.hasta.x} y2={tr.hasta.y!}
+                strokeWidth={tr.largo ? 1.5 : 2} strokeLinecap="round"
+                strokeDasharray={tr.largo ? '3 4' : undefined}
                 className="stroke-[#2a78d6] dark:stroke-[#3987e5]"
               />
             ))}
           </g>
-
-          {/* Un período sin dato: una marca en el eje, para que el hueco se vea a propósito. */}
-          {puntos.filter(q => q.valor === null).map(q => (
-            <line
-              key={q.id}
-              x1={q.x} x2={q.x} y1={yEje} y2={yEje - 5}
-              className="stroke-muted-foreground" strokeWidth={2}
-            />
-          ))}
 
           {/* Los puntos: hueco = baja cobertura. Anillo del color de la superficie. */}
           {puntos.filter(q => q.y !== null).map(q => {
@@ -276,7 +267,12 @@ export default function SerieTemporal({ filas, indice, cadencia }: Props) {
             </div>
             <div className="text-muted-foreground tabular-nums">
               {p.etiqueta}
-              {p.cobertura !== null && ` · cobertura ${(p.cobertura * 100).toFixed(0)} %`}
+              {/* En mensual la cobertura es la mediana de la de sus pasadas, **no** la del
+                  compuesto: la del compuesto —la unión— no se puede rehacer desde las filas
+                  por pasada (`#66` del worker). Dicho así, no se confunde con el mapa. */}
+              {p.cobertura !== null && (porPasada
+                ? ` · cobertura ${(p.cobertura * 100).toFixed(0)} %`
+                : ` · cobertura mediana de sus pasadas ${(p.cobertura * 100).toFixed(0)} %`)}
             </div>
             {p.p10 !== null && p.p90 !== null && (
               <div className="text-muted-foreground tabular-nums">
@@ -293,9 +289,10 @@ export default function SerieTemporal({ filas, indice, cadencia }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Punto hueco = cobertura menor al {COBERTURA_BAJA * 100} %. Marca en el eje ={' '}
-        {porPasada ? 'pasada procesada' : 'mes procesado'} sin dato. La línea se corta donde
-        no hay valor, y el eje es una fecha: un hueco ancho es tiempo sin medición.
+        Sólo entran las {porPasada ? 'pasadas' : 'pasadas del mes'} en que se ve al menos el{' '}
+        {COBERTURA_MINIMA * 100} % de la parcela: las tapadas por nubes no dicen nada del cultivo.
+        Punto hueco = cobertura menor al {COBERTURA_BAJA * 100} %. Línea punteada = más de 40
+        días sin una observación útil entre dos puntos.
         {conTira && ' La barra bajo el eje dice de cuántas pasadas salió cada punto.'}
       </p>
 

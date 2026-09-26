@@ -27,6 +27,32 @@ const MS_POR_DIA = 86_400_000
 /** Con esta cobertura o menos, el dato existe pero describe poca superficie. */
 export const COBERTURA_BAJA = 0.5
 
+/**
+ * El umbral de cobertura que el panel pide al leer: **el `cobertura_minima` de la receta**, que
+ * vale 0,3 en `s2-mensual-v1` y en `s2-pasada-v2`.
+ *
+ * Por qué se pide, y por qué M.9.0d no lo pedía (decisión corregida el 2026-09-26, `DECISIONS
+ * #51` de Geocore): con `s2-pasada-v2` el worker guarda **todas** las pasadas, también las
+ * tapadas enteras, y el umbral pasó a aplicarse al leer (`#63` del worker). Si nadie lo aplica,
+ * no se aplica en ningún lado. Medido sobre una parcela del valle del Cauca en julio de 2025:
+ * 19 pasadas, 10 al 0 % y 5 por debajo del 15 %. Sin el umbral, la cobertura mensual daba la
+ * mediana de las 19 —0 %— y el valor del mes mezclaba fotos de un puñado de píxeles.
+ *
+ * Está escrito acá y no se lee de la receta porque la API no la expone. Si una receta nueva
+ * cambia su mínimo, este número tiene que cambiar con ella.
+ */
+export const COBERTURA_MINIMA = 0.3
+
+/**
+ * Más que esto sin una observación útil entre dos puntos, y la línea que los une va punteada.
+ *
+ * La línea une todos los puntos (pedido del usuario, 2026-09-26): cortada en cada hueco, la
+ * serie por pasada no se leía. Pero una línea sólida entre dos fotos separadas por dos meses
+ * dice que se sabe qué pasó en el medio, y no se sabe. 40 días es "más de un mes": entre dos
+ * meses consecutivos hay 28 a 31, así que en la serie mensual sólo se puntea un mes que falta.
+ */
+export const HUECO_LARGO_MS = 40 * 86_400_000
+
 /** Un punto de la serie, ya listo para dibujar salvo la cuenta de píxeles. */
 export interface PuntoSerie {
   /**
@@ -162,7 +188,11 @@ export function serieDe(filas: readonly Measurement[], cadencia: Cadencia): Seri
     recetas: recetasDe(fila.receta),
   }))
 
-  const valores = puntos.flatMap(p => [p.valor, p.p10, p.p90]).filter((v): v is number => v !== null)
+  // El dominio sale **de los valores**, no de la banda. Una pasada con pocos píxeles limpios
+  // trae un p10 o un p90 extremo —el borde de una nube—, y con la banda adentro del dominio
+  // un solo punto así aplastaba la serie entera contra el medio del gráfico (se vio un eje de
+  // −1,2 a 1,2 para un NDVI que vive entre 0,4 y 0,8). La banda que se sale queda recortada.
+  const valores = puntos.map(p => p.valor).filter((v): v is number => v !== null)
   const min = valores.length ? Math.min(...valores) : 0
   const max = valores.length ? Math.max(...valores) : 1
   const aire = (max - min) * 0.1 || 0.05
@@ -260,4 +290,46 @@ function marcasDeDia(dominio: Dominio, maximo: number): MarcaDeTiempo[] {
     marcas.push({ t, etiqueta: new Date(t).toISOString().slice(5, 10) })
   }
   return marcas
+}
+
+/** Un tramo de la línea: dos puntos con valor, uno después del otro. */
+export interface Tramo<P> {
+  desde: P
+  hasta: P
+  /** Pasaron más de {@link HUECO_LARGO_MS} entre los dos: se dibuja punteado. */
+  largo: boolean
+}
+
+/**
+ * Los tramos de la línea: **cada punto con valor se une con el siguiente con valor**, sin
+ * importar qué hay en el medio. Un punto sin valor no corta la línea: no se dibuja.
+ *
+ * Hasta el 2026-09-26 la línea se cortaba en cada punto sin valor (M.7.3). Con una fila por
+ * mes eran pocos cortes; con una por pasada eran decenas, y la serie no se podía leer. Lo que
+ * se conserva de aquella regla es no mentir: un tramo largo va marcado como tal.
+ */
+export function tramosDe<P extends { t: number; valor: number | null }>(puntos: readonly P[]): Tramo<P>[] {
+  const conValor = puntos.filter(p => p.valor !== null)
+  return conValor.slice(1).map((hasta, i) => {
+    const desde = conValor[i]
+    return { desde, hasta, largo: hasta.t - desde.t > HUECO_LARGO_MS }
+  })
+}
+
+/**
+ * La query de `/api/measurements` para la serie de una parcela.
+ *
+ * Vive acá y no en `api.ts` para tener test: `api.ts` carga el cliente de Supabase, y los tests
+ * del panel corren en node, sin él (`DECISIONS #40`). Y lo que hay que fijar es justamente lo
+ * que se rompió el 2026-09-26: **que el pedido lleve `coberturaMinima`**. Sin él, las pasadas
+ * tapadas entran a la serie y a la mediana del mes, y nada falla a la vista.
+ */
+export function querySerie(
+  parcelaId: string, indice?: string, cadencia?: Cadencia, coberturaMinima?: number,
+): string {
+  const q = new URLSearchParams({ parcelaId, limit: '2000' })
+  if (indice) q.set('indice', indice)
+  if (cadencia) q.set('cadencia', cadencia)
+  if (coberturaMinima !== undefined) q.set('coberturaMinima', String(coberturaMinima))
+  return q.toString()
 }

@@ -4,6 +4,7 @@ import {
   type Cadencia, type LayerDetail, type LayerSummary, type MeasurementsResponse, type MetricasRancho,
   type Parcela, type Rancho, type Tenant,
 } from '@/lib/api'
+import { COBERTURA_MINIMA } from '@/lib/serie'
 
 /**
  * Las listas que mira la pantalla de Ranchos: los tenants, los ranchos de un tenant, las
@@ -91,7 +92,8 @@ const PEDIR_PARCELAS = (clave: string) => {
  */
 const PEDIR_SERIE = (clave: string) => {
   const [tenantId, parcelaId, indice, cadencia] = clave.split('/')
-  return getMeasurements(parcelaId, tenantId, indice, cadencia as Cadencia)
+  // El mínimo va siempre: sin él, las pasadas tapadas entran a la serie (`COBERTURA_MINIMA`).
+  return getMeasurements(parcelaId, tenantId, indice, cadencia as Cadencia, COBERTURA_MINIMA)
 }
 
 /**

@@ -49,13 +49,17 @@ librería de gráficos** (decisión del usuario, confirmada al abrir M.7.3).
 
 Distingue tres cosas que no son lo mismo:
 
-- **un período sin dato** (`valor` null) es un período **procesado** cuya cobertura quedó
-  bajo el mínimo de la receta que lo escribió: la línea se corta y queda una marca en el
-  eje. Lo escribe `s2-mensual-v1`; `s2-pasada-v2` ya no descarta al escribir, así que en lo
-  nuevo el valor va siempre y el umbral es de quien lee (`DECISIONS #70` del worker);
-- **un período ausente** —ninguna fila— es un período que nadie procesó: también corta la
-  línea, y desde M.9.0d **se ve como el hueco que es**, ancho en proporción al tiempo;
+- **una observación tapada** —menos del 30 % de la parcela a la vista— **no llega**: el
+  panel pide `coberturaMinima=0.3`, el mínimo de la receta (ver abajo, 2026-09-26);
+- **un tramo sin observaciones útiles** se ve como el hueco que es, ancho en proporción al
+  tiempo, y la línea lo cruza **punteada** si pasan más de 40 días;
 - **una observación de baja cobertura** trae dato de poca superficie: el punto va hueco.
+
+Hasta el 2026-09-26 la línea **se cortaba** en cada punto sin valor y dejaba una marca en el
+eje (M.7.3). Con una fila por mes eran pocos cortes; con una por pasada fueron decenas —186
+marcas en una parcela del Cauca— y la serie no se leía. Ahora une cada punto con el siguiente
+(pedido del usuario), y lo que se conserva de la regla vieja es no inventar: el tramo largo
+va punteado, y la banda p10–p90 sí se corta ahí.
 
 El índice y la cadencia van en la clave del pedido: cambiar cualquiera de los dos es otro
 pedido, y la respuesta del anterior que llegue tarde no se pinta como si fuera la nueva.
@@ -106,9 +110,33 @@ cobertura y dos cosas en el mismo canal no se leen. Con `pasada` la tira no se d
 **Lo que el panel no hace: agregar.** El número mensual es la mediana de las medianas por
 pasada y **lo calcula la API** (`DECISIONS #48` de Geocore). El front elige la cadencia.
 
-**Y lo que no pide: `?coberturaMinima=`.** Sin el parámetro la API no filtra nada, que es lo
-que corresponde acá: una medición de poca cobertura se dibuja —con el punto hueco, o como
-hueco si no trae valor—, y filtrarla la haría desaparecer en vez de mostrarse.
+**Pide `?coberturaMinima=0.3`, y M.9.0d no lo pedía: fue un error** (corregido el
+2026-09-26, `DECISIONS #51` de Geocore). Desde `s2-pasada-v2` el worker guarda **todas** las
+pasadas —también las tapadas enteras— y el umbral pasó a aplicarse al leer. Sin el parámetro
+la API no filtra, así que el umbral no se aplicaba en ningún lado. Medido sobre una parcela
+del valle del Cauca, julio de 2025: **19 pasadas, 10 al 0 % y 5 por debajo del 15 %**, y la
+cobertura de cada una coincide con la clasificación de escena (SCL) de la ESA, así que no era
+un error de la máscara: eran nubes. Lo que se veía:
+
+- la cobertura **mensual** en 0 %: es la mediana de las coberturas de las pasadas, y 10 de 19
+  eran 0. Con el mínimo, es la mediana de las 4 útiles: 100 %;
+- el valor del mes mezclaba fotos de un puñado de píxeles —una del 0,6 % traía un NDVI de
+  0,62—: 0,538 contra 0,515 con el mínimo;
+- `agregadas` decía 19 cuando las útiles eran 4;
+- el gráfico por pasada con 186 marcas de "sin dato" y un eje de −1,2 a 1,2, estirado por la
+  banda de esas pasadas casi vacías.
+
+**La cobertura mensual es la mediana de la de sus pasadas, no la del compuesto.** El mapa del
+mes es un collage que toma cada píxel de la pasada en que ese píxel se veía, así que con 4
+pasadas parciales puede cubrir la parcela entera; esa unión no se puede rehacer desde las
+filas por pasada (`#66` del worker). El tooltip lo dice con esas palabras.
+
+**El eje vertical sale de los valores, no de la banda**: una pasada con pocos píxeles trae un
+p10 o un p90 extremo, y metido en el dominio aplastaba la serie. La banda que se sale queda
+recortada.
+
+El 0,3 está escrito en `lib/serie.ts` (`COBERTURA_MINIMA`) porque la API no expone la receta.
+Si una receta cambia su mínimo, cambia con ella.
 
 ### Por qué el gráfico está dibujado así
 
