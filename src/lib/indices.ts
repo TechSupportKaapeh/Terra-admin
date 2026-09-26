@@ -93,7 +93,7 @@ export function fueraDeEscala(
  * antes, en decimales) el rango va tal cual.
  */
 export function rescaleDe(rango: readonly [number, number], escala?: number | null): string {
-  const factor = escala ?? 1
+  const factor = factorDe(escala)
   // `toPrecision` saca el ruido de float: 0,1 × 3 no es 0,3 en binario.
   const escalar = (v: number) => Number((v * factor).toPrecision(12))
   return `${escalar(rango[0])},${escalar(rango[1])}`
@@ -101,5 +101,16 @@ export function rescaleDe(rango: readonly [number, number], escala?: number | nu
 
 /** Un valor leído del COG —un píxel, un mínimo— en las unidades del índice. */
 export function valorDelIndice(crudo: number, escala?: number | null): number {
-  return crudo / (escala ?? 1)
+  return crudo / factorDe(escala)
+}
+
+/**
+ * La escala que se usa: la de la capa si es un número positivo, 1 si no.
+ *
+ * La base ya rechaza una escala de 0 o negativa (`ck_layers_escala`, Geocore `DECISIONS #53`),
+ * pero el panel no depende de eso: con 0, `valorDelIndice` dividiría por cero y mostraría
+ * `Infinity` como valor de un píxel. Defensa en profundidad, encontrada en la auditoría de M.9.7b.
+ */
+function factorDe(escala?: number | null): number {
+  return typeof escala === 'number' && Number.isFinite(escala) && escala > 0 ? escala : 1
 }

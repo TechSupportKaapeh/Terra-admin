@@ -113,3 +113,14 @@ describe('valorDelIndice', () => {
     expect(valorDelIndice(0.615, null)).toBe(0.615)
   })
 })
+
+describe('una escala inválida', () => {
+  // La base la rechaza (ck_layers_escala), pero el panel no depende de eso: con 0, el valor
+  // de un píxel saldría Infinity. Auditoría de M.9.7b, 2026-09-26.
+  it('se trata como sin escala, y no divide por cero', () => {
+    for (const mala of [0, -10000, Number.NaN]) {
+      expect(valorDelIndice(6150, mala), String(mala)).toBe(6150)
+      expect(rescaleDe([0, 0.8], mala), String(mala)).toBe('0,0.8')
+    }
+  })
+})
