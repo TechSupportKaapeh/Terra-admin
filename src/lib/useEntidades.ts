@@ -99,18 +99,14 @@ const PEDIR_SERIE = (clave: string) => {
 /**
  * Las capas del rancho, no las de sus parcelas.
  *
- * **El filtro por rancho es de acá porque `GET /api/layers` no lo tiene**: filtra por
- * tenant o por parcela, y nada más. Con el techo de 2000 capas alcanza para el tenant
- * entero —un rancho son 96 por alta, cuatro índices por 24 meses—, así que traerlas y
- * filtrarlas cuesta un pedido. Si algún tenant pasa ese techo, el filtro tiene que
- * mudarse al servidor.
- *
- * `parcelaId === null` no es de más: la capa de una parcela también lleva el `ranchoId`
- * de su rancho, y sin eso el mapa del rancho mezclaría los rásters de sus parcelas.
+ * **El filtro es de Geocore** desde M.9.7c (`DECISIONS #54`): `?ranchoId=` trae las del
+ * rancho con `parcela_id` nulo. Antes el panel pedía todo el tenant y filtraba acá, con un
+ * techo de 2000 capas que el mapa por pasada iba a pasar en cuanto un tenant tuviera varios
+ * ranchos; y el recorte no se ve, porque la respuesta es el array pelado.
  */
 const PEDIR_CAPAS_RANCHO = (clave: string) => {
   const [tenantId, ranchoId] = clave.split('/')
-  return getLayers(tenantId).then(capas => capas.filter(c => c.ranchoId === ranchoId && c.parcelaId === null))
+  return getLayers(tenantId, { ranchoId })
 }
 
 const PEDIR_CAPA = (layerId: string) => getLayer(layerId)

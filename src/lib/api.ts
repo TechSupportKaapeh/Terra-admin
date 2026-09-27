@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { queryCapas, type FiltroCapas } from './capas'
 import { querySerie } from './serie'
 
 const GEOCORE_URL = import.meta.env.VITE_GEOCORE_URL as string
@@ -244,12 +245,10 @@ export const getDiagnostico = () => request<Diagnostico>('/api/admin/diagnostico
 export const getMapToken = (tenantId: string) =>
   request<{ token: string }>('/api/maps/token', {}, tenantId)
 
-// TerraStaff lista sin X-Tenant-ID: el tenant va como filtro en la query.
-// El techo de Geocore es 5000 (DECISIONS #28). 50 alcanzaba cuando un rancho tenía 24 capas
-// de NDVI; desde que el mapa es de los cuatro índices (worker DECISIONS #58) son 96 por
-// rancho y por alta, y con 50 el catálogo mostraría una parte sin decirlo.
-export const getLayers = (tenantId: string, limit = 2000) =>
-  request<LayerSummary[]>(`/api/layers?tenantId=${encodeURIComponent(tenantId)}&limit=${limit}`)
+// TerraStaff lista sin X-Tenant-ID: el tenant va como filtro en la query (`queryCapas`).
+// Los filtros por rancho y fechas los aplica Geocore desde M.9.7c (DECISIONS #54).
+export const getLayers = (tenantId: string, filtro: FiltroCapas = {}) =>
+  request<LayerSummary[]>(`/api/layers?${queryCapas(tenantId, filtro)}`)
 
 export const getLayer = (id: string) => request<LayerDetail>(`/api/layers/${encodeURIComponent(id)}`)
 
