@@ -196,9 +196,12 @@ Puede haber un mes **con ráster y sin métrica**: el rancho tuvo píxeles limpi
 ninguna parcela llegó a la cobertura mínima de la receta. Se dice con esas palabras en vez
 de mostrar un guión.
 
-### Lo que falta
+### Las capas del rancho las filtra Geocore
 
-`GET /api/layers` **no filtra por rancho** —sólo por tenant o por parcela—, así que el
-filtro es del panel: se piden las capas del tenant (techo 2000) y se quedan las del rancho.
-Un rancho son 96 capas por alta, así que alcanza de sobra; si algún tenant pasa ese techo, el
-filtro tiene que mudarse al servidor.
+Desde M.9.7c el panel pide `GET /api/layers?ranchoId=` (Geocore `DECISIONS #54`), que trae
+las capas del rancho **sin las de sus parcelas**. La query la arma `queryCapas`, en
+`src/lib/capas.ts`, que tiene tests. Antes el panel pedía todas las capas del tenant, con
+techo 2000, y se quedaba con las del rancho. Con el mapa por pasada (M.9.7e) un rancho pasa
+de 96 capas a varios cientos, y ese techo se iba a pasar sin que nada lo avisara, porque la
+respuesta es el array pelado. El filtro por fechas (`desde`, `hasta`) ya existe en la API, y
+el mapa lo va a usar en M.9.7f.
