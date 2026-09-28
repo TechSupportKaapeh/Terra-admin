@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ESCALAS, escalaDe, fueraDeEscala, PALETAS, rescaleDe, valorDelIndice } from '@/lib/indices'
+import { ESCALAS, escalaDe, fueraDeEscala, PALETAS, rescaleDe, valorDelIndice, esColorReal } from '@/lib/indices'
 
 /**
  * Cómo se pinta cada índice (M.7.6).
@@ -52,8 +52,18 @@ describe('escalaDe', () => {
     // Si la paleta no está, la leyenda queda transparente y el mapa igual se pinta: el
     // mapa diría una cosa y su escala otra, sin ningún error a la vista.
     for (const [nombre, escala] of Object.entries(ESCALAS)) {
+      // El color real va sin paleta a propósito: son tres bandas y TiTiler las pinta en color.
+      if (esColorReal(nombre)) continue
       expect(PALETAS[escala.paleta], `${nombre} → ${escala.paleta}`).toBeDefined()
     }
+  })
+
+  it('el color real no tiene paleta y va en reflectancia', () => {
+    // M.9.7f: con una paleta, TiTiler pintaría sólo la primera de las tres bandas.
+    expect(esColorReal('rgb')).toBe(true)
+    expect(esColorReal('ndvi')).toBe(false)
+    expect(escalaDe('rgb').paleta).toBe('')
+    expect(rescaleDe(escalaDe('rgb').rango, 10000)).toBe('0,3000')
   })
 })
 

@@ -5,6 +5,7 @@ import {
   type Parcela, type Rancho, type Tenant,
 } from '@/lib/api'
 import { COBERTURA_MINIMA } from '@/lib/serie'
+import { LIMITE_CAPAS_RANCHO } from '@/lib/capas'
 
 /**
  * Las listas que mira la pantalla de Ranchos: los tenants, los ranchos de un tenant, las
@@ -106,7 +107,7 @@ const PEDIR_SERIE = (clave: string) => {
  */
 const PEDIR_CAPAS_RANCHO = (clave: string) => {
   const [tenantId, ranchoId] = clave.split('/')
-  return getLayers(tenantId, { ranchoId })
+  return getLayers(tenantId, { ranchoId, limit: LIMITE_CAPAS_RANCHO })
 }
 
 const PEDIR_CAPA = (layerId: string) => getLayer(layerId)

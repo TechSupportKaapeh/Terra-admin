@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { LayerDetail, Parcela, Rancho } from '@/lib/api'
-import { escalaDe, PALETAS, rescaleDe } from '@/lib/indices'
+import { escalaDe, esColorReal, PALETAS, rescaleDe } from '@/lib/indices'
 
 /**
  * El mapa de un mes del rancho: el ráster del índice, con el rancho y sus parcelas encima.
@@ -28,11 +28,13 @@ export default function MapaRancho({ rancho, parcelas, capa, indice, token, alto
 
   // Sin capa o sin token no hay ráster que pedir: el mapa muestra igual los polígonos,
   // que es lo que deja ver *dónde* está el rancho mientras el resto carga.
-  const urlTiles = capa && token
-    // El rango va en las unidades del COG: un multibanda guarda ×10.000 (M.9.7), y sin
-    // escalarlo el rancho se pinta entero del color del extremo alto.
-    ? `${capa.tiles[0]}&${new URLSearchParams({ rescale: rescaleDe([min, max], capa.escala), colormap_name: escala.paleta, token })}`
-    : null
+  // El rango va en las unidades del COG: un multibanda guarda ×10.000 (M.9.7), y sin
+  // escalarlo el rancho se pinta entero del color del extremo alto. El color real va sin
+  // `colormap_name`: con tres bandas TiTiler ya pinta en color (M.9.7f).
+  const parametros = new URLSearchParams({ rescale: rescaleDe([min, max], capa?.escala) })
+  if (!esColorReal(indice)) parametros.set('colormap_name', escala.paleta)
+  if (token) parametros.set('token', token)
+  const urlTiles = capa && token ? `${capa.tiles[0]}&${parametros}` : null
 
   const anillo = rancho.coordinates.map(c => [c.lat, c.lng] as [number, number])
   const centro: [number, number] = anillo[0] ?? [20.6597, -103.3496]
@@ -115,6 +117,16 @@ function Leyenda({ indice }: { indice: string }) {
   const escala = escalaDe(indice)
   const [min, max] = escala.rango
   const centro = escala.centro
+
+  // El color real no tiene rampa: cada píxel es su color. Lo que sí hay que decir es el
+  // rango, porque con otro la misma imagen se ve más clara o más oscura.
+  if (esColorReal(indice)) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Color real: rojo, verde y azul de Sentinel-2, reflectancia de {min} a {max}.
+      </p>
+    )
+  }
 
   return (
     <div className="w-56">

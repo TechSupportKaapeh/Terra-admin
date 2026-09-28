@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LIMITE_CAPAS, queryCapas } from '@/lib/capas'
+import { LIMITE_CAPAS, LIMITE_CAPAS_RANCHO, queryCapas, recortado } from '@/lib/capas'
 
 /**
  * La query del listado de capas (M.9.7c).
@@ -35,5 +35,22 @@ describe('queryCapas', () => {
     const q = queryCapas('t1', { ranchoId: 'a&tenantId=otro' })
 
     expect(new URLSearchParams(q).getAll('tenantId')).toEqual(['t1'])
+  })
+})
+
+describe('recortado', () => {
+  it('avisa cuando la respuesta llega justo al techo', () => {
+    // Geocore corta por las más viejas sin decirlo: llegar al techo es la única pista.
+    expect(recortado(new Array(LIMITE_CAPAS_RANCHO).fill(0), LIMITE_CAPAS_RANCHO)).toBe(true)
+    expect(recortado(new Array(LIMITE_CAPAS_RANCHO - 1).fill(0), LIMITE_CAPAS_RANCHO)).toBe(false)
+  })
+
+  it('sin respuesta todavía no avisa', () => {
+    expect(recortado(null, LIMITE_CAPAS_RANCHO)).toBe(false)
+  })
+
+  it('el techo del rancho es el máximo de la API, arriba del de por defecto', () => {
+    expect(LIMITE_CAPAS_RANCHO).toBe(5000)
+    expect(LIMITE_CAPAS_RANCHO).toBeGreaterThan(LIMITE_CAPAS)
   })
 })
