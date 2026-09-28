@@ -343,7 +343,17 @@ export interface Diagnostico {
   }
   servicios: EstadoServicio[]
 }
-export interface LayerSummary { id: string; tenantId: string; parcelaId: string | null; ranchoId: string | null; product: string; storageKey: string; acquiredTs: string; source: string; createdAt: string }
+/**
+ * Una capa del listado. `source`: `mensual` (el compuesto, `acquiredTs` el día 1), `pasada` (una
+ * pasada del satélite, `acquiredTs` su instante) u `on_demand`. `cobertura` y `mediana` desde
+ * Geocore `DECISIONS #55`: pueden faltar o venir en null (las capas de antes, y el `rgb` no
+ * tiene mediana).
+ */
+export interface LayerSummary {
+  id: string; tenantId: string; parcelaId: string | null; ranchoId: string | null; product: string
+  storageKey: string; acquiredTs: string; source: string; createdAt: string
+  cobertura?: number | null; mediana?: number | null
+}
 /** `tiles[0]` es la plantilla de TiTiler SIN rescale, colormap_name ni token: los agrega el front. */
 /**
  * `escala`: por cuánto está multiplicado el valor guardado en el COG (10000 en los multibanda de

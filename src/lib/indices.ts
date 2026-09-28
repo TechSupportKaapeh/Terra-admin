@@ -57,6 +57,20 @@ export const ESCALAS: Record<string, EscalaDeIndice> = {
   // Humedad. **Divergente y centrada en 0**, que acá sí significa algo: bajo cero es seco y
   // sobre cero es húmedo. Es el único de los cuatro con un centro con sentido.
   ndmi: { que: 'humedad', rango: [-0.4, 0.4], paleta: 'rdbu', centro: 0 },
+
+  // El color real (M.9.7f, worker `DECISIONS #77`). **No es un índice**: son tres bandas de
+  // reflectancia (rojo, verde y azul) y TiTiler las pinta en color cuando recibe tres `bidx`,
+  // así que **va sin paleta**. 0 a 0,3 es el rango de un campo a la vista: la reflectancia de
+  // la vegetación en el visible no pasa de 0,15, y el suelo claro llega a 0,3.
+  rgb: { que: 'color real', rango: [0, 0.3], paleta: '' },
+}
+
+/** El producto del color real en `layers`: la fila con las bandas 5 a 7 del COG. */
+export const COLOR_REAL = 'rgb'
+
+/** Si el producto se pinta en color real y no con una paleta. */
+export function esColorReal(producto: string): boolean {
+  return producto.toLowerCase() === COLOR_REAL
 }
 
 /** La escala de un índice; para uno que no esté en la tabla, la de vegetación. */

@@ -37,14 +37,23 @@ const CADENCIAS: readonly Opcion[] = [
   },
 ]
 
-export default function InterruptorCadencia({ value, onValueChange }: {
+/**
+ * `nombre` y `ayudas` cambian lo que dice, no lo que hace: el mapa del rancho usa el mismo
+ * interruptor para elegir entre el compuesto del mes y las pasadas (M.9.7f). `deshabilitada`
+ * apaga una opción que no tiene datos, con su porqué en el `title`.
+ */
+export default function InterruptorCadencia({ value, onValueChange, nombre = 'Cadencia de la serie', ayudas, deshabilitada }: {
   value: Cadencia
   onValueChange: (value: Cadencia) => void
+  nombre?: string
+  ayudas?: Partial<Record<Cadencia, string>>
+  deshabilitada?: { value: Cadencia; porque: string }
 }) {
   return (
-    <div role="group" aria-label="Cadencia de la serie" className="flex w-fit gap-1 rounded-lg bg-muted p-[3px]">
+    <div role="group" aria-label={nombre} className="flex w-fit gap-1 rounded-lg bg-muted p-[3px]">
       {CADENCIAS.map(o => {
         const elegida = o.value === value
+        const apagada = deshabilitada?.value === o.value
         return (
           <Button
             key={o.value}
@@ -52,7 +61,8 @@ export default function InterruptorCadencia({ value, onValueChange }: {
             size="sm"
             variant="ghost"
             aria-pressed={elegida}
-            title={o.ayuda}
+            disabled={apagada}
+            title={apagada ? deshabilitada.porque : ayudas?.[o.value] ?? o.ayuda}
             // El mismo aspecto que la pestaña activa de `ui/tabs.tsx`: la elegida se
             // levanta sobre el fondo del grupo. Es el lenguaje que el panel ya usa para
             // "de estas dos, ésta".

@@ -204,4 +204,25 @@ las capas del rancho **sin las de sus parcelas**. La query la arma `queryCapas`,
 techo 2000, y se quedaba con las del rancho. Con el mapa por pasada (M.9.7e) un rancho pasa
 de 96 capas a varios cientos, y ese techo se iba a pasar sin que nada lo avisara, porque la
 respuesta es el array pelado. El filtro por fechas (`desde`, `hasta`) ya existe en la API, y
-el mapa lo va a usar en M.9.7f.
+el mapa no lo usa: por pasada necesita todas las fechas para decidir la última buena y la dudosa.
+
+### El mapa por fechas: mensual o por pasada (M.9.7f, 2026-09-27)
+
+Desde la receta v3 del worker (`DECISIONS #77` del worker) un rancho tiene **dos familias de
+capas**: el compuesto del mes (`source: "mensual"`, `acquiredTs` el día 1) y **una por cada pasada
+con algún píxel despejado** (`source: "pasada"`, `acquiredTs` el instante). El panel las separa con
+el mismo interruptor de la serie, «Mensual / Por pasada». Decisión en Geocore `DECISIONS #56`.
+
+- **Mezclarlas es el error a evitar**: el compuesto de agosto al lado de la pasada del 1 de agosto,
+  como si fueran lo mismo. `fechasDelMapa` filtra por `source` antes que nada.
+- **Por pasada, arranca en la última imagen buena**: útil (al menos 30 % del rancho a la vista) y no
+  dudosa. Las que tapan más se muestran con un tilde, que dice cuántas hay escondidas.
+- **La dudosa se marca y no se esconde**: se aparta más de 0,10 de la anterior y de la siguiente,
+  que coinciden entre sí y están a menos de 16 días. El color real se marca con el NDVI de su pasada.
+- **El color real** (`product: "rgb"`, bandas 5 a 7) va sin paleta y con reflectancia de 0 a 0,3.
+- **Mientras v3 no sea la vigente** ningún rancho tiene pasadas, y «Por pasada» queda apagado con su
+  porqué en el `title`.
+
+Las cuentas están en `src/lib/mapaRancho.ts`, con tests. **El techo del listado del rancho es 5000**
+(`LIMITE_CAPAS_RANCHO`), el máximo de la API, y el mapa avisa si la respuesta llega justo ahí:
+Geocore corta por las más viejas sin decirlo.

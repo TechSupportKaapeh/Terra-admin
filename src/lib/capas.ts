@@ -23,6 +23,22 @@ export interface FiltroCapas {
 export const LIMITE_CAPAS = 2000
 
 /**
+ * El techo del mapa de **un rancho**: el máximo que acepta Geocore (M.9.7f). Con la receta v3
+ * un rancho nublado sobre dos órbitas son hasta 24 × (1 + 19) × 5 = 2.400 filas en dos años,
+ * más que {@link LIMITE_CAPAS}, y **Geocore corta por las más viejas sin avisar**: ordena por
+ * `acquired_ts` de la más nueva a la más vieja y devuelve el array pelado.
+ */
+export const LIMITE_CAPAS_RANCHO = 5000
+
+/**
+ * Si la respuesta llegó justo al techo, y por lo tanto pudo quedar algo afuera. No hay otra
+ * forma de saberlo: el listado no dice si recortó.
+ */
+export function recortado(capas: readonly unknown[] | null, limite: number): boolean {
+  return capas !== null && capas.length >= limite
+}
+
+/**
  * La query string del listado. TerraStaff lista sin `X-Tenant-ID`, así que el tenant va en la
  * query: Geocore sólo la respeta para staff.
  */
