@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   createRancho, createParcela, deactivateRancho, activateRancho, deactivateParcela, activateParcela,
   updateRanchoName, updateRanchoGeometry, updateParcelaName, updateParcelaGeometry, describeError,
-  type Rancho, type Parcela,
+  type Rancho, type Parcela, type AlcanceReproceso,
 } from '@/lib/api'
 import { useProcesos } from '@/lib/useProcesos'
 import { useParcelas, useRanchos, useTenants } from '@/lib/useEntidades'
@@ -18,6 +18,8 @@ import TablaRanchos from '@/components/ranchos/TablaRanchos'
 import TablaParcelas from '@/components/ranchos/TablaParcelas'
 import SerieParcelaSheet from '@/components/series/SerieParcelaSheet'
 import MapaRanchoSheet from '@/components/mapas/MapaRanchoSheet'
+import ReprocesarDialog from '@/components/ReprocesarDialog'
+import { Button } from '@/components/ui/button'
 
 /**
  * Ranchos y parcelas de un tenant: las dos tablas, el mapa y las altas.
@@ -29,8 +31,11 @@ import MapaRanchoSheet from '@/components/mapas/MapaRanchoSheet'
  *
  * **Todo pasa el `tenantId`** como `X-Tenant-ID`: es lo que exige el aislamiento de
  * tenant del backend [C-1].
+ *
+ * `puedeReprocesar` (M.9.7g) muestra los botones de reproceso, que son de TerraAdmin. Es
+ * cosmético, como la pestaña de Diagnóstico: lo que protege es la política de Geocore.
  */
-export default function RanchosPage() {
+export default function RanchosPage({ puedeReprocesar = false }: { puedeReprocesar?: boolean }) {
   const [tenantId, setTenantId] = useState('')
   const [ranchoElegido, setRanchoElegido] = useState('')
   const [jobAbierto, setJobAbierto] = useState<string | null>(null)
@@ -42,6 +47,7 @@ export default function RanchosPage() {
   const [ranchoEditando, setRanchoEditando] = useState<Rancho | null>(null)
   const [parcelaEditando, setParcelaEditando] = useState<Parcela | null>(null)
   const [errorAccion, setErrorAccion] = useState('')
+  const [reprocesando, setReprocesando] = useState<AlcanceReproceso | null>(null)
 
   const { tenants, error: errorTenants } = useTenants()
   const { ranchos, error: errorRanchos, recargar: recargarRanchos } = useRanchos(tenantId)
@@ -66,6 +72,7 @@ export default function RanchosPage() {
     setJobAbierto(null)
     setRanchoEditando(null)
     setParcelaEditando(null)
+    setReprocesando(null)
   }
 
   /** Corre una acción de la tabla y recarga; el error va al banner, no a la consola. */
@@ -125,6 +132,18 @@ export default function RanchosPage() {
         />
       </div>
 
+      {puedeReprocesar && tenantId && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setReprocesando({
+            tipo: 'tenant', id: tenantId, nombre: tenants.find(t => t.id === tenantId)?.name ?? '',
+          })}
+        >
+          Reprocesar el tenant entero
+        </Button>
+      )}
+
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
@@ -154,6 +173,9 @@ export default function RanchosPage() {
                 recargarRanchos,
               )}
               onAbrirBitacora={setJobAbierto}
+              onReprocesar={puedeReprocesar
+                ? r => setReprocesando({ tipo: 'rancho', id: r.id, nombre: r.name })
+                : undefined}
             />
 
             {ranchoElegidoObj && (
@@ -199,6 +221,9 @@ export default function RanchosPage() {
                 recargarParcelas,
               )}
               onAbrirBitacora={setJobAbierto}
+              onReprocesar={puedeReprocesar
+                ? p => setReprocesando({ tipo: 'parcela', id: p.id, nombre: p.name })
+                : undefined}
             />
 
             {ranchoElegido && (
@@ -237,6 +262,13 @@ export default function RanchosPage() {
       <MapaRanchoSheet rancho={mapaDe} tenantId={tenantId} onClose={() => setMapaDe(null)} />
 
       <SerieParcelaSheet parcela={serieDe} tenantId={tenantId} onClose={() => setSerieDe(null)} />
+
+      {reprocesando && <ReprocesarDialog
+        key={`${reprocesando.tipo}-${reprocesando.id}`}
+        alcance={reprocesando}
+        onEncolado={recargarProcesos}
+        onCerrar={() => setReprocesando(null)}
+      />}
 
       <BitacoraSheet jobId={jobAbierto} onClose={() => setJobAbierto(null)} />
     </div>

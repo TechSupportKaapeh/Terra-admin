@@ -94,7 +94,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto p-6">
         {tab === 'usuarios' && <UsersPage />}
         {tab === 'tenants' && <TenantsPage />}
-        {tab === 'ranchos' && <RanchosPage />}
+        {tab === 'ranchos' && <RanchosPage puedeReprocesar={esAdminGlobal} />}
         {tab === 'procesos' && <ProcesosPage />}
         {tab === 'diagnóstico' && esAdminGlobal && <DiagnosticoPage />}
       </main>
