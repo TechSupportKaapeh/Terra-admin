@@ -22,24 +22,33 @@ describe('parametrosCsv', () => {
     expect(q.get('formato')).toBe('estandar')
   })
 
-  it('manda el mismo mínimo de cobertura que la serie, y todos los índices', () => {
+  it('manda el mismo mínimo de cobertura que la serie, y por defecto todos los índices', () => {
     const q = new URLSearchParams(parametrosCsv(parcela, 'mensual', 'excel'))
     expect(q.get('coberturaMinima')).toBe('0.3')
     expect(q.has('indice')).toBe(false)
   })
+
+  it('con un índice solo, lo pide', () => {
+    const q = new URLSearchParams(parametrosCsv(parcela, 'mensual', 'excel', 'ndre'))
+    expect(q.get('indice')).toBe('ndre')
+  })
 })
 
 describe('nombreDeArchivo', () => {
-  it('lleva el nombre, la cadencia y el día', () => {
-    expect(nombreDeArchivo(parcela, 'mensual', hoy)).toBe('serie_lote-norte_mensual_2026-10-02.csv')
+  it('lleva el nombre, las métricas, la cadencia y el día', () => {
+    expect(nombreDeArchivo(parcela, 'mensual', hoy)).toBe('serie_lote-norte_todos_mensual_2026-10-02.csv')
+  })
+
+  it('con un índice solo, el archivo lo dice', () => {
+    expect(nombreDeArchivo(parcela, 'pasada', hoy, 'ndvi')).toBe('serie_lote-norte_ndvi_pasada_2026-10-02.csv')
   })
 
   it('saca acentos y lo que un sistema de archivos rechazaría', () => {
     expect(nombreDeArchivo({ ...rancho, nombre: 'Zapotlán / El "Grande"' }, 'pasada', hoy))
-      .toBe('serie_zapotlan-el-grande_pasada_2026-10-02.csv')
+      .toBe('serie_zapotlan-el-grande_todos_pasada_2026-10-02.csv')
   })
 
   it('nunca queda vacío', () => {
-    expect(nombreDeArchivo({ ...rancho, nombre: '***' }, 'mensual', hoy)).toBe('serie_rancho_mensual_2026-10-02.csv')
+    expect(nombreDeArchivo({ ...rancho, nombre: '***' }, 'mensual', hoy)).toBe('serie_rancho_todos_mensual_2026-10-02.csv')
   })
 })
