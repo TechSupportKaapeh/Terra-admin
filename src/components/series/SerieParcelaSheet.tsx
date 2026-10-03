@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label'
 import Selector from '@/components/Selector'
 import InterruptorCadencia from '@/components/series/InterruptorCadencia'
 import SerieTemporal from '@/components/series/SerieTemporal'
+import ExportarCsv from '@/components/series/ExportarCsv'
 import type { Cadencia } from '@/lib/api'
 import { useSerie } from '@/lib/useEntidades'
 import { escalaDe } from '@/lib/indices'
@@ -87,6 +88,11 @@ function Serie({ parcelaId, nombre, tenantId }: { parcelaId: string; nombre: str
           <div className="space-y-1">
             <Label className="text-xs">Cadencia</Label>
             <InterruptorCadencia value={cadencia} onValueChange={setCadencia} />
+          </div>
+
+          {/* Baja lo que se ve —la parcela, con esta cadencia—, con los cuatro índices. */}
+          <div className="ml-auto">
+            <ExportarCsv alcance={{ tipo: 'parcela', id: parcelaId, nombre }} tenantId={tenantId} cadencia={cadencia} />
           </div>
         </div>
 

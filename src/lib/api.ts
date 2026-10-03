@@ -475,3 +475,28 @@ export const reprocesar = (a: AlcanceReproceso) =>
     method: 'POST',
     body: JSON.stringify(alcanceComoParametro(a)),
   })
+
+// Exportar la serie a CSV (Geocore `DECISIONS #65`)
+//
+// `GET /api/measurements/csv` es la misma consulta que la serie, como archivo. No pasa por
+// `request` porque la respuesta no es JSON: es un blob, y el aviso de que se cortó viene en un
+// header (`X-Truncado`), no en el cuerpo.
+
+export interface CsvDescargado {
+  archivo: Blob
+  /** Se tocó el techo de 50.000 filas: faltan las más viejas. */
+  truncado: boolean
+}
+
+/** `consulta` sale de `parametrosCsv` (`lib/exportarCsv.ts`). */
+export async function descargarCsvSerie(consulta: string, tenantId: string): Promise<CsvDescargado> {
+  const res = await fetch(`${GEOCORE_URL}/api/measurements/csv?${consulta}`, {
+    headers: await getHeaders(tenantId),
+  })
+  if (res.status === 401) await endExpiredSession()
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.message ?? res.statusText)
+  }
+  return { archivo: await res.blob(), truncado: res.headers.get('X-Truncado') === 'true' }
+}

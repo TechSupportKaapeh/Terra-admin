@@ -19,6 +19,7 @@ import TablaParcelas from '@/components/ranchos/TablaParcelas'
 import SerieParcelaSheet from '@/components/series/SerieParcelaSheet'
 import MapaRanchoSheet from '@/components/mapas/MapaRanchoSheet'
 import ReprocesarDialog from '@/components/ReprocesarDialog'
+import ExportarCsv from '@/components/series/ExportarCsv'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -184,6 +185,17 @@ export default function RanchosPage({ puedeReprocesar = false }: { puedeReproces
                   Geometría de {ranchoElegidoObj.name} (azul) y sus parcelas (verde)
                 </Label>
                 <GeometryView shapes={formas} height={280} />
+                {/* Desde el rancho, las series de todas sus parcelas (Geocore `DECISIONS #65`). */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Series de todas las parcelas de {ranchoElegidoObj.name}
+                  </Label>
+                  <ExportarCsv
+                    key={ranchoElegidoObj.id}
+                    alcance={{ tipo: 'rancho', id: ranchoElegidoObj.id, nombre: ranchoElegidoObj.name }}
+                    tenantId={tenantId}
+                  />
+                </div>
               </div>
             )}
           </TabsContent>
