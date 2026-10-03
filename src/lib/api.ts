@@ -416,3 +416,62 @@ export const getProcesos = (filtro: FiltroProcesos = {}) => {
 }
 
 export const getProceso = (id: string) => request<DetalleProceso>(`/api/admin/procesos/${encodeURIComponent(id)}`)
+
+// Reproceso — TerraAdmin (M.9.7g)
+//
+// `POST /api/admin/procesos/reprocesar` republica el alta de una parcela, un rancho (con sus
+// parcelas) o un tenant entero: el worker rehace los 24 meses con la receta vigente. Gasta cuota
+// de GEE, así que Geocore lo deja sólo a TerraAdmin. `GET …/reprocesar/estimacion` dice lo mismo
+// que se encolaría y cuánto va a ocupar, **sin encolar nada**: es lo que muestra la confirmación
+// (Geocore `DECISIONS #64`).
+
+/** Qué reprocesar: exactamente uno. */
+export interface AlcanceReproceso {
+  tipo: 'parcela' | 'rancho' | 'tenant'
+  id: string
+  nombre: string
+}
+
+export interface EstimacionReproceso {
+  /** Las entidades del alcance, contadas como las cuenta el reproceso. */
+  total: number
+  /** `total` pasa `maximo`: el reproceso se rechazaría entero. */
+  excedido: boolean
+  maximo: number
+  parcelas: number
+  ranchos: number
+  /** Las que ya tienen un alta en curso: no se encolan ni se cuentan en lo de abajo. */
+  salteadas: number
+  hectareasParcelas: number
+  hectareasRanchos: number
+  meses: number
+  /** Los COG de los ranchos: un rango, porque depende de cuántas pasadas despejadas haya. */
+  mbArchivosMinimo: number
+  mbArchivosMaximo: number
+  /** Las filas de las parcelas. */
+  mbBaseMinimo: number
+  mbBaseMaximo: number
+  /** Ranchos cuya alta va a fallar por el tope de descarga de GEE (worker `DECISIONS #78`). */
+  demasiadoGrandes: { id: string; nombre: string; cajaHa: number }[]
+}
+
+export interface ResultadoReproceso {
+  total: number
+  encolados: string[]
+  salteados: string[]
+  conError: string[]
+}
+
+/** `{ ranchoId: … }`: el mismo alcance en el cuerpo del POST y en la query de la estimación. */
+const alcanceComoParametro = (a: AlcanceReproceso) => ({ [`${a.tipo}Id`]: a.id })
+
+export const getEstimacionReproceso = (a: AlcanceReproceso) =>
+  request<EstimacionReproceso>(
+    `/api/admin/procesos/reprocesar/estimacion?${new URLSearchParams(alcanceComoParametro(a))}`,
+  )
+
+export const reprocesar = (a: AlcanceReproceso) =>
+  request<ResultadoReproceso>('/api/admin/procesos/reprocesar', {
+    method: 'POST',
+    body: JSON.stringify(alcanceComoParametro(a)),
+  })

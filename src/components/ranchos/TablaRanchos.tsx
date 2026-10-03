@@ -11,7 +11,7 @@ import type { Proceso, Rancho } from '@/lib/api'
  *
  * Sólo dibuja: qué hace cada acción lo decide la pantalla.
  */
-export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onSeleccionar, onVerMapa, onEditar, onAlternarActivo, onAbrirBitacora }: {
+export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onSeleccionar, onVerMapa, onEditar, onAlternarActivo, onAbrirBitacora, onReprocesar }: {
   ranchos: Rancho[]
   seleccionado: string
   /** El último proceso de cada rancho, por id. */
@@ -21,6 +21,8 @@ export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onS
   onEditar: (r: Rancho) => void
   onAlternarActivo: (r: Rancho) => void
   onAbrirBitacora: (jobId: string) => void
+  /** Sin él no hay botón: es sólo para TerraAdmin (M.9.7g). */
+  onReprocesar?: (r: Rancho) => void
 }) {
   return (
     <Table>
@@ -66,6 +68,16 @@ export default function TablaRanchos({ ranchos, seleccionado, ultimoProceso, onS
               >
                 {r.isActive ? 'Desactivar' : 'Activar'}
               </Button>
+              {/* Un rancho inactivo no se reprocesa: Geocore contesta 404 (`EntidadesDelAlcance`). */}
+              {onReprocesar && r.isActive && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={e => { e.stopPropagation(); onReprocesar(r) }}
+                >
+                  Reprocesar
+                </Button>
+              )}
             </TableCell>
           </TableRow>
         ))}

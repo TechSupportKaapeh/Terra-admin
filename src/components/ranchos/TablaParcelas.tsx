@@ -8,7 +8,7 @@ import type { Parcela, Proceso } from '@/lib/api'
  * Las parcelas del rancho elegido. A diferencia de la tabla de ranchos, la fila no
  * selecciona nada: no hay un nivel más abajo al que bajar.
  */
-export default function TablaParcelas({ parcelas, ultimoProceso, onVerSerie, onEditar, onAlternarActivo, onAbrirBitacora }: {
+export default function TablaParcelas({ parcelas, ultimoProceso, onVerSerie, onEditar, onAlternarActivo, onAbrirBitacora, onReprocesar }: {
   parcelas: Parcela[]
   /** El último proceso de cada parcela, por id. */
   ultimoProceso: Map<string, Proceso>
@@ -16,6 +16,8 @@ export default function TablaParcelas({ parcelas, ultimoProceso, onVerSerie, onE
   onEditar: (p: Parcela) => void
   onAlternarActivo: (p: Parcela) => void
   onAbrirBitacora: (jobId: string) => void
+  /** Sin él no hay botón: es sólo para TerraAdmin (M.9.7g). */
+  onReprocesar?: (p: Parcela) => void
 }) {
   return (
     <Table>
@@ -47,6 +49,11 @@ export default function TablaParcelas({ parcelas, ultimoProceso, onVerSerie, onE
               <Button variant="ghost" size="sm" onClick={() => onAlternarActivo(p)}>
                 {p.isActive ? 'Desactivar' : 'Activar'}
               </Button>
+              {onReprocesar && p.isActive && (
+                <Button variant="ghost" size="sm" onClick={() => onReprocesar(p)}>
+                  Reprocesar
+                </Button>
+              )}
             </TableCell>
           </TableRow>
         ))}
