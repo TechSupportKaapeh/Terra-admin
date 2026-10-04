@@ -556,3 +556,95 @@ export async function previsualizarImportacion(archivo: File, tenantId: string):
   }
   return res.json()
 }
+
+// --- Importar el plan confirmado (K.4 de Geocore, DECISIONS #70) ---
+//
+// Las dos llamadas mandan el MISMO archivo de la vista previa y el plan: Geocore vuelve a leer el
+// archivo y del plan toma sólo rol, rancho, nombre y activo. La estimación y la importación corren
+// la misma revisión, así que lo que se confirma viendo la estimación es lo que se crea.
+
+/** Lo que el operador confirmó para un polígono. El plan lleva TODOS, también los desactivados. */
+export interface PoligonoDelPlan {
+  indice: number
+  rol: RolPropuesto
+  rancho: number | null
+  nombre: string
+  activo: boolean
+}
+
+export interface PlanDeImportacion { poligonos: PoligonoDelPlan[] }
+
+/** Un error o un aviso del plan; `indice` es `null` cuando es del plan entero (el tope, por ejemplo). */
+export interface ObservacionDelPlan { indice: number | null; codigo: string; texto: string }
+
+export interface EstimacionDeImportacion {
+  /** Sin errores: «Crear» lo crearía tal cual. */
+  valido: boolean
+  altas: number
+  ranchos: number
+  parcelas: number
+  maximoDeAltas: number
+  ejecucionesAproximadas: number
+  hectareasRanchos: number
+  hectareasParcelas: number
+  meses: number
+  mbArchivosMinimo: number
+  mbArchivosMaximo: number
+  mbBaseMinimo: number
+  mbBaseMaximo: number
+  demasiadoGrandes: { indice: number; nombre: string; cajaHa: number }[]
+  errores: ObservacionDelPlan[]
+  avisos: ObservacionDelPlan[]
+}
+
+export interface EntidadImportada { indice: number; id: string; nombre: string; ranchoId: string | null; jobId: string | null }
+
+export interface ImportacionRealizada {
+  ranchos: EntidadImportada[]
+  parcelas: EntidadImportada[]
+  /** Creadas, pero su alta no se encoló: su job quedó `failed` y se reprocesan desde Procesos. */
+  sinEncolar: string[]
+  avisos: ObservacionDelPlan[]
+}
+
+/**
+ * El 422 `IMPORTACION_PLAN_INVALIDO`: no se creó nada, y trae los errores para marcarlos en el
+ * árbol. Pasa si algo cambió entre «Revisar» y «Crear» (otro usuario creó un rancho, por ejemplo).
+ */
+export class PlanInvalidoError extends Error {
+  readonly errores: ObservacionDelPlan[]
+  readonly avisos: ObservacionDelPlan[]
+
+  constructor(message: string, errores: ObservacionDelPlan[], avisos: ObservacionDelPlan[]) {
+    super(message)
+    this.name = 'PlanInvalidoError'
+    this.errores = errores
+    this.avisos = avisos
+  }
+}
+
+async function enviarPlan<T>(ruta: string, archivo: File, plan: PlanDeImportacion, tenantId: string): Promise<T> {
+  const headers = await getHeaders(tenantId)
+  delete headers['Content-Type']
+  const form = new FormData()
+  form.append('file', archivo)
+  form.append('plan', JSON.stringify(plan))
+
+  const res = await fetch(`${GEOCORE_URL}${ruta}`, { method: 'POST', headers, body: form })
+  if (res.status === 401) await endExpiredSession()
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    if (err.code === 'IMPORTACION_PLAN_INVALIDO')
+      throw new PlanInvalidoError(err.message, err.errores ?? [], err.avisos ?? [])
+    throw new Error(err.message ?? res.statusText)
+  }
+  return res.json()
+}
+
+/** Lo que crearía el plan y cuánto costaría, sin crear nada. Con errores es 200 y `valido: false`. */
+export const estimarImportacion = (archivo: File, plan: PlanDeImportacion, tenantId: string) =>
+  enviarPlan<EstimacionDeImportacion>('/api/importacion/estimacion', archivo, plan, tenantId)
+
+/** Crea los ranchos y las parcelas del plan, todos o ninguno. */
+export const importarPlan = (archivo: File, plan: PlanDeImportacion, tenantId: string) =>
+  enviarPlan<ImportacionRealizada>('/api/importacion', archivo, plan, tenantId)

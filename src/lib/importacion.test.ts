@@ -65,12 +65,14 @@ describe('arbolDe', () => {
     expect(a.desactivados.map(p => p.indice)).toEqual([1])
   })
 
-  it('nada se pierde de la pantalla: una parcela sin rancho activo va con lo desactivado', () => {
+  it('nada se pierde de la pantalla: una parcela sin rancho activo va a «sin rancho», marcada', () => {
     const v = vista([pol(0, 'Rancho', { activo: false }), pol(1, 'Parcela', { rancho: 0 }), pol(2, 'Parcela', { rancho: 9 })])
     const a = arbolDe(v)
 
-    const mostrados = a.ranchos.flatMap(r => [r.rancho, ...r.parcelas]).concat(a.caso4, a.desactivados)
+    const mostrados = a.ranchos.flatMap(r => [r.rancho, ...r.parcelas]).concat(a.caso4, a.sinRancho, a.desactivados)
     expect(mostrados.map(p => p.indice).sort()).toEqual([0, 1, 2])
+    expect(a.sinRancho.map(p => p.indice)).toEqual([1, 2])
+    expect(a.desactivados.map(p => p.indice)).toEqual([0])
   })
 })
 

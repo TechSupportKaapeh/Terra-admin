@@ -286,7 +286,12 @@ export default function RanchosPage({ puedeReprocesar = false }: { puedeReproces
         onCerrar={() => setReprocesando(null)}
       />}
 
-      <ImportacionSheet abierto={importando} tenantId={tenantId} onClose={() => setImportando(false)} />
+      <ImportacionSheet
+        abierto={importando}
+        tenantId={tenantId}
+        onCreado={() => { recargarRanchos(); recargarProcesos() }}
+        onClose={() => setImportando(false)}
+      />
 
       <BitacoraSheet jobId={jobAbierto} onClose={() => setJobAbierto(null)} />
     </div>

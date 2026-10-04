@@ -15,17 +15,25 @@ export interface RanchoDelArbol {
 
 /**
  * La propuesta como se lee en pantalla: los ranchos con sus parcelas, los del caso 4 (un rancho
- * por parcela) y lo que arranca desactivado, cada grupo en el orden del archivo.
+ * por parcela), las parcelas que se quedaron sin rancho y lo desactivado, cada grupo en el orden
+ * del archivo.
  */
 export interface ArbolDeImportacion {
   ranchos: RanchoDelArbol[]
   caso4: PoligonoPrevisto[]
+  /**
+   * Parcelas activas cuyo rancho no es un rancho activo: el operador lo desactivó o lo pasó a
+   * parcela (K.6). **No se tocan solas** (decisión del usuario, 2026-10-04): quedan acá, marcadas,
+   * hasta que se las reasigne o se las desactive. Geocore las rechaza con `RANCHO_NO_VALIDO`.
+   */
+  sinRancho: PoligonoPrevisto[]
   desactivados: PoligonoPrevisto[]
 }
 
 export function arbolDe(vista: VistaPreviaImportacion): ArbolDeImportacion {
   const ranchos = new Map<number, RanchoDelArbol>()
   const caso4: PoligonoPrevisto[] = []
+  const sinRancho: PoligonoPrevisto[] = []
   const desactivados: PoligonoPrevisto[] = []
 
   for (const p of vista.poligonos) {
@@ -36,14 +44,14 @@ export function arbolDe(vista: VistaPreviaImportacion): ArbolDeImportacion {
 
   for (const p of vista.poligonos) {
     if (!p.activo || p.rol !== 'Parcela') continue
-    // Geocore siempre cuelga una parcela activa de un rancho activo. Si alguna vez no pasara,
-    // se muestra entre lo desactivado en vez de perderse de la pantalla.
+    // Geocore propone siempre una parcela activa dentro de un rancho activo; las correcciones
+    // del operador pueden dejarla sin él. Nada se pierde de la pantalla.
     const nodo = p.rancho === null ? undefined : ranchos.get(p.rancho)
     if (nodo) nodo.parcelas.push(p)
-    else desactivados.push(p)
+    else sinRancho.push(p)
   }
 
-  return { ranchos: [...ranchos.values()], caso4, desactivados }
+  return { ranchos: [...ranchos.values()], caso4, sinRancho, desactivados }
 }
 
 /** Los colores del mapa y de las marcas del árbol, por rol. Lo desactivado va en gris. */
