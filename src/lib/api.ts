@@ -500,3 +500,61 @@ export async function descargarCsvSerie(consulta: string, tenantId: string): Pro
   }
   return { archivo: await res.blob(), truncado: res.headers.get('X-Truncado') === 'true' }
 }
+
+// Crear extensión y subgrupos: la vista previa (Geocore `DECISIONS #69`, sprint K)
+//
+// `POST /api/importacion/vista-previa` lee un KML, GeoJSON o WKT, lo clasifica y devuelve el
+// árbol propuesto con las coordenadas de cada polígono. **No crea nada.** No pasa por `request`
+// porque el cuerpo es un multipart: el `Content-Type` lo pone el navegador, con el boundary.
+
+export type FormatoDeArchivo = 'Kml' | 'GeoJson' | 'Wkt'
+export type CasoDeImportacion =
+  'VariosRanchosConParcelas' | 'SoloRanchos' | 'UnRanchoConParcelas' | 'SoloParcelas' | 'Mixto' | 'Vacio'
+export type RolPropuesto = 'Rancho' | 'Parcela' | 'RanchoConParcela' | 'NoImportable'
+
+export interface AvisoDeImportacion { codigo: string; texto: string }
+
+export interface PoligonoPrevisto {
+  /** Su posición en la lista; `rancho` apunta a otro de éstos. */
+  indice: number
+  nombre: string
+  nombreEnElArchivo: string | null
+  rol: RolPropuesto
+  /** Si es parcela, el `indice` de su rancho. */
+  rancho: number | null
+  activo: boolean
+  motivo: string
+  areaHa: number
+  vertices: number
+  /** El Placemark, Feature o geometría WKT de donde salió (desde 1). */
+  pieza: number
+  parte: { numero: number; de: number } | null
+  carpeta: string | null
+  avisos: AvisoDeImportacion[]
+  coordenadas: Coordinate[]
+}
+
+export interface VistaPreviaImportacion {
+  formato: FormatoDeArchivo
+  caso: CasoDeImportacion
+  resumen: { ranchos: number; parcelas: number; desactivados: number; conAvisos: number }
+  poligonos: PoligonoPrevisto[]
+}
+
+/** Los formatos que acepta la vista previa, para el `accept` del input. */
+export const EXTENSIONES_IMPORTABLES = '.kml,.geojson,.json,.wkt,.txt'
+
+export async function previsualizarImportacion(archivo: File, tenantId: string): Promise<VistaPreviaImportacion> {
+  const headers = await getHeaders(tenantId)
+  delete headers['Content-Type']
+  const form = new FormData()
+  form.append('file', archivo)
+
+  const res = await fetch(`${GEOCORE_URL}/api/importacion/vista-previa`, { method: 'POST', headers, body: form })
+  if (res.status === 401) await endExpiredSession()
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.message ?? res.statusText)
+  }
+  return res.json()
+}

@@ -20,6 +20,7 @@ import SerieParcelaSheet from '@/components/series/SerieParcelaSheet'
 import MapaRanchoSheet from '@/components/mapas/MapaRanchoSheet'
 import ReprocesarDialog from '@/components/ReprocesarDialog'
 import ExportarCsv from '@/components/series/ExportarCsv'
+import ImportacionSheet from '@/components/importacion/ImportacionSheet'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -49,6 +50,8 @@ export default function RanchosPage({ puedeReprocesar = false }: { puedeReproces
   const [parcelaEditando, setParcelaEditando] = useState<Parcela | null>(null)
   const [errorAccion, setErrorAccion] = useState('')
   const [reprocesando, setReprocesando] = useState<AlcanceReproceso | null>(null)
+  // «Crear extensión y subgrupos» (K.5): la vista previa de un archivo, en un panel lateral.
+  const [importando, setImportando] = useState(false)
 
   const { tenants, error: errorTenants } = useTenants()
   const { ranchos, error: errorRanchos, recargar: recargarRanchos } = useRanchos(tenantId)
@@ -159,7 +162,8 @@ export default function RanchosPage({ puedeReprocesar = false }: { puedeReproces
           </TabsList>
 
           <TabsContent value="ranchos" className="space-y-3">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setImportando(true)}>Crear extensión y subgrupos</Button>
               <CrearEntidadDialog que="rancho" etiquetaBoton="Nuevo rancho" onCrear={crearRancho} />
             </div>
             <TablaRanchos
@@ -281,6 +285,8 @@ export default function RanchosPage({ puedeReprocesar = false }: { puedeReproces
         onEncolado={recargarProcesos}
         onCerrar={() => setReprocesando(null)}
       />}
+
+      <ImportacionSheet abierto={importando} tenantId={tenantId} onClose={() => setImportando(false)} />
 
       <BitacoraSheet jobId={jobAbierto} onClose={() => setJobAbierto(null)} />
     </div>
