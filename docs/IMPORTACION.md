@@ -6,7 +6,7 @@
 ## Qué hace
 
 En **Ranchos y Parcelas → Ranchos**, el botón **«Crear extensión y subgrupos»** abre un panel lateral.
-Se sube un archivo —con el botón «Elegir archivo» o arrastrándolo a la zona de carga— —KML, GeoJSON (`.geojson` o `.json`) o WKT (`.wkt` o `.txt`)— y Geocore
+Se sube un archivo —KML, GeoJSON (`.geojson` o `.json`) o WKT (`.wkt` o `.txt`)—, con el botón «Elegir archivo» o arrastrándolo a la zona de carga, y Geocore
 (`POST /api/importacion/vista-previa`) lo lee, lo clasifica y devuelve lo que propone. El panel lo
 muestra en dos columnas:
 
