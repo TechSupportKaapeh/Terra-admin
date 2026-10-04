@@ -16,12 +16,23 @@ export interface Shape {
   color?: string
   /** Texto del tooltip al pasar el mouse sobre el polígono. */
   label?: string
+  /** Trazo punteado: lo que se ve pero no se va a crear (la vista previa de la importación). */
+  dashed?: boolean
+  /** Grosor del trazo. Por defecto el de Leaflet (3). */
+  weight?: number
+  /** Opacidad del relleno. Por defecto 0,15. */
+  fillOpacity?: number
 }
 
 interface Props {
   shapes: Shape[]
   /** Alto del mapa en px. El ancho siempre ocupa el contenedor. */
   height?: number
+  /**
+   * Si viene, el mapa se encuadra en esto en vez de en todas las formas: es el polígono
+   * elegido en una lista al lado. Al volver a null, se encuadra todo otra vez.
+   */
+  foco?: Coordinate[] | null
 }
 
 /**
@@ -57,7 +68,7 @@ function FitBounds({ shapes, signature }: { shapes: Shape[]; signature: string }
  * callbacks. Recibe las `coordinates` que `RanchoDto`/`ParcelaDto` ya devuelven y las
  * dibuja. La idea es no volver a pedir al backend algo que ya viaja en la respuesta.
  */
-export default function GeometryView({ shapes, height = 256 }: Props) {
+export default function GeometryView({ shapes, height = 256, foco = null }: Props) {
   // Descarta polígonos degenerados (<3 vértices no forman un área). El backend valida
   // un mínimo de 3, pero esto protege ante datos parciales o entidades sin geometría.
   const withGeom = shapes.filter(s => s.coordinates.length > 2)
@@ -97,12 +108,22 @@ export default function GeometryView({ shapes, height = 256 }: Props) {
             // Leaflet espera [lat, lng]; el backend ya entrega ese orden (GeoConverter
             // invierte el (X=lng, Y=lat) de NTS). No re-invertir aquí.
             positions={s.coordinates.map(c => [c.lat, c.lng] as [number, number])}
-            pathOptions={{ color: s.color ?? '#2563eb', fillOpacity: 0.15 }}
+            pathOptions={{
+              color: s.color ?? '#2563eb',
+              fillOpacity: s.fillOpacity ?? 0.15,
+              weight: s.weight,
+              dashArray: s.dashed ? '6 6' : undefined,
+            }}
           >
             {s.label && <Tooltip sticky>{s.label}</Tooltip>}
           </Polygon>
         ))}
-        <FitBounds shapes={withGeom} signature={signature} />
+        {/* Con foco, se encuadra el elegido; la firma lo incluye para que cambiar de elegido
+            mueva el mapa y no cada render. */}
+        <FitBounds
+          shapes={foco && foco.length > 2 ? [{ coordinates: foco }] : withGeom}
+          signature={foco && foco.length > 2 ? `foco:${foco.map(c => `${c.lat},${c.lng}`).join(';')}` : signature}
+        />
       </MapContainer>
     </div>
   )
