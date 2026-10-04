@@ -182,6 +182,19 @@ y el mes.
 - **El token de mapa va en la URL**, no en una cabecera: quien pide cada tile es un `<img>`
   de Leaflet. Se renueva con 5 minutos de margen, porque un token que vence en medio de un
   paneo deja el mapa lleno de 401 sin ningún error visible.
+- **El CSV con las series de todas las parcelas del rancho está arriba de este panel**
+  (2026-10-04, pedido del usuario): es donde se miran los datos del rancho. Antes estaba debajo
+  del mapa de geometría de la pestaña Ranchos, que es sólo la geometría.
+
+### La geometría debajo de la tabla, y el bug del trazo (2026-10-04)
+
+Elegir un rancho dibuja su polígono (azul) y el de sus parcelas (verde) en `GeometryView`. Desde
+K.5 hasta el 2026-10-04 **no se dibujaba nada**: K.5 sumó `weight` a las opciones de Leaflet, el mapa
+de Ranchos no lo pasa, y Leaflet copia un `weight: undefined` encima de su default. Con eso su
+tolerancia de clic es `NaN`, el recuadro del polígono también, y lo descarta como «fuera de la
+vista», sin ningún error. **Las opciones de trazo se arman en `src/lib/trazo.ts` sin claves en
+`undefined`**, con un test. Si se suma una opción nueva, que vaya por ahí. Se reprodujo y se verificó
+con una captura de Edge sin pantalla, antes y después.
 
 ### El número del rancho, contra su mapa
 

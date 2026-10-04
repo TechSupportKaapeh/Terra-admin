@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, TileLayer, Polygon, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Coordinate } from '@/lib/api'
+import { opcionesDeTrazo } from '@/lib/trazo'
 
 /**
  * Una geometría a dibujar. Es una abstracción de dominio-agnóstica a propósito:
@@ -108,12 +109,7 @@ export default function GeometryView({ shapes, height = 256, foco = null }: Prop
             // Leaflet espera [lat, lng]; el backend ya entrega ese orden (GeoConverter
             // invierte el (X=lng, Y=lat) de NTS). No re-invertir aquí.
             positions={s.coordinates.map(c => [c.lat, c.lng] as [number, number])}
-            pathOptions={{
-              color: s.color ?? '#2563eb',
-              fillOpacity: s.fillOpacity ?? 0.15,
-              weight: s.weight,
-              dashArray: s.dashed ? '6 6' : undefined,
-            }}
+            pathOptions={opcionesDeTrazo(s)}
           >
             {s.label && <Tooltip sticky>{s.label}</Tooltip>}
           </Polygon>
