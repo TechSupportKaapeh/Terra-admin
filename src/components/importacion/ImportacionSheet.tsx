@@ -2,8 +2,9 @@ import { useRef, useState, type ReactNode } from 'react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import GeometryView from '@/components/GeometryView'
+import ZonaDeCarga from '@/components/importacion/ZonaDeCarga'
 import {
-  EXTENSIONES_IMPORTABLES, describeError, previsualizarImportacion,
+  describeError, previsualizarImportacion,
   type PoligonoPrevisto, type VistaPreviaImportacion,
 } from '@/lib/api'
 import {
@@ -41,7 +42,7 @@ export default function ImportacionSheet({ abierto, tenantId, onClose }: {
 
 function VistaPrevia({ tenantId }: { tenantId: string }) {
   const [vista, setVista] = useState<VistaPreviaImportacion | null>(null)
-  const [archivo, setArchivo] = useState('')
+  const [archivo, setArchivo] = useState<{ nombre: string; bytes: number } | null>(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
   const [elegido, setElegido] = useState<number | null>(null)
@@ -49,10 +50,9 @@ function VistaPrevia({ tenantId }: { tenantId: string }) {
   // si no, el mapa podría quedar mostrando un archivo con el nombre de otro.
   const pedido = useRef(0)
 
-  async function subir(f: File | undefined) {
-    if (!f) return
+  async function subir(f: File) {
     const este = ++pedido.current
-    setArchivo(f.name)
+    setArchivo({ nombre: f.name, bytes: f.size })
     setVista(null)
     setElegido(null)
     setError('')
@@ -71,15 +71,7 @@ function VistaPrevia({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-4 px-4 pb-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="file"
-          accept={EXTENSIONES_IMPORTABLES}
-          className="text-sm"
-          onChange={e => { void subir(e.target.files?.[0]); e.target.value = '' }}
-        />
-        {archivo && <span className="text-sm text-muted-foreground">{cargando ? `Leyendo ${archivo}…` : archivo}</span>}
-      </div>
+      <ZonaDeCarga archivo={archivo} cargando={cargando} onElegir={f => void subir(f)} />
 
       {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
