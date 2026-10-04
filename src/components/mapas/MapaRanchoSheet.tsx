@@ -5,6 +5,7 @@ import Selector from '@/components/Selector'
 import DeslizadorDeMeses from '@/components/mapas/DeslizadorDeMeses'
 import MapaRancho from '@/components/mapas/MapaRancho'
 import InterruptorCadencia from '@/components/series/InterruptorCadencia'
+import ExportarCsv from '@/components/series/ExportarCsv'
 import { useCapa, useCapasDeRancho, useMetricasRancho, useParcelas } from '@/lib/useEntidades'
 import { useMapToken } from '@/lib/useMapToken'
 import { COLOR_REAL, escalaDe, esColorReal } from '@/lib/indices'
@@ -133,6 +134,14 @@ function Mapa({ rancho, tenantId }: { rancho: Rancho; tenantId: string }) {
       </SheetHeader>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-6">
+        {/* Las series de todas las parcelas del rancho (Geocore `DECISIONS #65`). Van acá, donde se
+            miran los datos del rancho, y no debajo de su geometría en la tabla (pedido del usuario,
+            2026-10-04). */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+          <span className="text-xs text-muted-foreground">Las series de todas las parcelas de {rancho.name}</span>
+          <ExportarCsv alcance={{ tipo: 'rancho', id: rancho.id, nombre: rancho.name }} tenantId={tenantId} />
+        </div>
+
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-40 space-y-1">
             <Label className="text-xs">Índice</Label>
