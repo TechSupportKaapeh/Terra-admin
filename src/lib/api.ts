@@ -541,8 +541,6 @@ export interface VistaPreviaImportacion {
   poligonos: PoligonoPrevisto[]
 }
 
-/** Los formatos que acepta la vista previa, para el `accept` del input. */
-export const EXTENSIONES_IMPORTABLES = '.kml,.geojson,.json,.wkt,.txt'
 
 export async function previsualizarImportacion(archivo: File, tenantId: string): Promise<VistaPreviaImportacion> {
   const headers = await getHeaders(tenantId)

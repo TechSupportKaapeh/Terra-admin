@@ -6,7 +6,7 @@
 ## Qué hace
 
 En **Ranchos y Parcelas → Ranchos**, el botón **«Crear extensión y subgrupos»** abre un panel lateral.
-Se sube un archivo —KML, GeoJSON (`.geojson` o `.json`) o WKT (`.wkt` o `.txt`)— y Geocore
+Se sube un archivo —con el botón «Elegir archivo» o arrastrándolo a la zona de carga— —KML, GeoJSON (`.geojson` o `.json`) o WKT (`.wkt` o `.txt`)— y Geocore
 (`POST /api/importacion/vista-previa`) lo lee, lo clasifica y devuelve lo que propone. El panel lo
 muestra en dos columnas:
 
@@ -25,7 +25,8 @@ Arriba van el caso del archivo (1 a 4, o mixto) y una frase con lo que se crear�
 | Pieza | Qué |
 |---|---|
 | `src/components/importacion/ImportacionSheet.tsx` | El panel: subir, el árbol y el mapa |
-| `src/lib/importacion.ts` | Lo puro: el árbol, las formas del mapa, los textos. Con tests |
+| `src/components/importacion/ZonaDeCarga.tsx` | Elegir o arrastrar el archivo; lo arrastrado se valida antes de subirlo (`problemaDelArchivo`) |
+| `src/lib/importacion.ts` | Lo puro: el árbol, las formas del mapa, los textos, qué archivo se puede subir. Con tests |
 | `src/lib/api.ts` → `previsualizarImportacion` | La llamada. No pasa por `request`: el cuerpo es un multipart |
 | `src/components/GeometryView.tsx` | El mapa de siempre, con tres opcionales nuevos en `Shape` (`dashed`, `weight`, `fillOpacity`) y `foco` |
 

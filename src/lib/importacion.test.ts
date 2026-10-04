@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 import type { PoligonoPrevisto, VistaPreviaImportacion } from '@/lib/api'
 import {
   COLOR_DESACTIVADO,
+  MAX_BYTES_IMPORTACION,
   COLOR_POR_ROL,
   arbolDe,
   formasDe,
   hectareas,
   origenDe,
+  problemaDelArchivo,
   resumenEnPalabras,
+  tamanoDeArchivo,
 } from '@/lib/importacion'
 
 /**
@@ -109,5 +112,34 @@ describe('textos', () => {
   it('las hectáreas llevan más decimales cuando son pocas', () => {
     expect(hectareas(9.23)).toBe('9,23 ha')
     expect(hectareas(2494.83)).toBe('2.494,8 ha')
+  })
+})
+
+describe('problemaDelArchivo', () => {
+  // Lo que se arrastra llega sin el filtro del `accept`: esto es lo único que lo frena antes de subirlo.
+  it('acepta los formatos de Geocore, sin distinguir mayúsculas', () => {
+    for (const n of ['a.kml', 'a.geojson', 'a.json', 'a.wkt', 'a.txt', 'A.KML']) {
+      expect(problemaDelArchivo(n, 100)).toBeNull()
+    }
+  })
+
+  it('un KMZ dice cómo resolverlo', () => {
+    expect(problemaDelArchivo('ranchos.kmz', 100)).toContain('descomprimilo')
+  })
+
+  it('rechaza otro formato, un archivo sin extensión, uno vacío y uno de más de 10 MB', () => {
+    expect(problemaDelArchivo('ranchos.shp', 100)).toContain('no es un formato')
+    expect(problemaDelArchivo('ranchos', 100)).toContain('no es un formato')
+    expect(problemaDelArchivo('a.kml', 0)).toContain('vacío')
+    expect(problemaDelArchivo('a.kml', MAX_BYTES_IMPORTACION + 1)).toContain('el máximo es 10 MB')
+    expect(problemaDelArchivo('a.kml', MAX_BYTES_IMPORTACION)).toBeNull()
+  })
+})
+
+describe('tamanoDeArchivo', () => {
+  it('elige la unidad', () => {
+    expect(tamanoDeArchivo(512)).toBe('512 B')
+    expect(tamanoDeArchivo(73_306)).toBe('72 KB')
+    expect(tamanoDeArchivo(2.5 * 1024 * 1024)).toBe('2,5 MB')
   })
 })

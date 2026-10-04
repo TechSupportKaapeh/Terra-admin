@@ -111,3 +111,30 @@ export function origenDe(p: PoligonoPrevisto): string {
   const carpeta = p.carpeta ? ` · carpeta «${p.carpeta}»` : ''
   return `Elemento ${p.pieza} del archivo${parte}${carpeta}`
 }
+
+/** Los formatos que acepta la vista previa, para el `accept` del input. */
+export const EXTENSIONES_IMPORTABLES = '.kml,.geojson,.json,.wkt,.txt'
+
+/** El tope de Geocore por archivo (`LimitesDeLectura.MaxBytesPorArchivo`). */
+export const MAX_BYTES_IMPORTACION = 10 * 1024 * 1024
+
+/**
+ * Si el archivo se puede mandar, o por qué no. Hace falta acá porque el `accept` del input sólo
+ * filtra el diálogo de elegir: lo que se arrastra y se suelta llega sin filtrar. Geocore valida
+ * igual; esto evita subir 10 MB para enterarse de que era un .shp.
+ */
+export function problemaDelArchivo(nombre: string, bytes: number): string | null {
+  const extension = nombre.includes('.') ? nombre.slice(nombre.lastIndexOf('.')).toLowerCase() : ''
+  if (extension === '.kmz') return 'Un KMZ es un KML comprimido: descomprimilo y subí el .kml de adentro.'
+  if (!EXTENSIONES_IMPORTABLES.split(',').includes(extension))
+    return `«${nombre}» no es un formato que se pueda importar. Se aceptan .kml, .geojson, .json, .wkt y .txt.`
+  if (bytes === 0) return `«${nombre}» está vacío.`
+  if (bytes > MAX_BYTES_IMPORTACION) return `«${nombre}» pesa ${tamanoDeArchivo(bytes)}, y el máximo es 10 MB.`
+  return null
+}
+
+export function tamanoDeArchivo(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024).toLocaleString('es-AR')} KB`
+  return `${(bytes / (1024 * 1024)).toLocaleString('es-AR', { maximumFractionDigits: 1 })} MB`
+}
