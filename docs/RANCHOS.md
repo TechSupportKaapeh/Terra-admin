@@ -173,6 +173,10 @@ y el mes.
   (`rescaleDe` en `indices.ts`, con tests). Sin eso, un NDVI de 0,8 guardado como 8000 pinta el
   rancho entero del color del extremo alto, y no hay ningún error. La banda ya viene en la
   plantilla (`bidx`). Una capa sin escala —las de antes— se pinta como siempre.
+- **Los índices son una sola lista**, `INDICES` en `src/lib/indices.ts`: el mapa, la serie y el CSV la toman de
+  ahí (antes estaba escrita tres veces). Desde la receta v4 son seis: los cuatro de siempre, **SAVI** y **LAI**
+  (M.9.3, worker `DECISIONS #81`). **El LAI es una estimación** desde el EVI, de 0 a 3,5, y su capa trae
+  `escala: 1000`; `rescaleDe` ya la usa. Sumar un índice es una entrada en `INDICES` y otra en `ESCALAS`.
 - **El color lo decide el panel** (`src/lib/indices.ts`): el COG guarda el índice crudo en
   float32 y la plantilla de Geocore sale sin `rescale` ni `colormap_name`. Cada índice tiene
   su escala, porque NDVI y NDMI pintados con el mismo rango dan dos mapas que parecen

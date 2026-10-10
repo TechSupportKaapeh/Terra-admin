@@ -1,4 +1,5 @@
 import type { Cadencia } from '@/lib/api'
+import { INDICES } from '@/lib/indices'
 import { COBERTURA_MINIMA } from '@/lib/serie'
 
 /**
@@ -27,7 +28,7 @@ export const TODOS = 'todos'
 
 export const OPCIONES_INDICE_CSV = [
   { value: TODOS, label: 'Todos los índices' },
-  ...['ndvi', 'evi', 'ndre', 'ndmi'].map(i => ({ value: i, label: `Sólo ${i.toUpperCase()}` })),
+  ...INDICES.map(i => ({ value: i, label: `Sólo ${i.toUpperCase()}` })),
 ]
 
 export const OPCIONES_FORMATO = [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ESCALAS, escalaDe, fueraDeEscala, PALETAS, rescaleDe, valorDelIndice, esColorReal } from '@/lib/indices'
+import { ESCALAS, escalaDe, fueraDeEscala, INDICES, PALETAS, rescaleDe, valorDelIndice, esColorReal } from '@/lib/indices'
 
 /**
  * Cómo se pinta cada índice (M.7.6).
@@ -21,8 +21,9 @@ describe('escalaDe', () => {
   })
 
   it('un índice que la tabla no conoce no rompe el mapa: cae en la escala de vegetación', () => {
-    // Cuando M.9.3 sume SAVI, el mapa lo pinta con algo razonable hasta que tenga su fila.
-    const escala = escalaDe('savi')
+    // Un índice que el worker sume antes que el panel se pinta con algo razonable hasta que
+    // tenga su fila. (Hasta M.9.3 el ejemplo era SAVI, que ya la tiene.)
+    const escala = escalaDe('gndvi')
     expect(escala.rango).toEqual([0, 0.8])
     expect(escala.paleta).toBe('rdylgn')
   })
@@ -132,5 +133,22 @@ describe('una escala inválida', () => {
       expect(valorDelIndice(6150, mala), String(mala)).toBe(6150)
       expect(rescaleDe([0, 0.8], mala), String(mala)).toBe('0,0.8')
     }
+  })
+})
+
+describe('SAVI y LAI (M.9.3, worker DECISIONS #81)', () => {
+  it('la lista de índices es la de la receta v4, en su orden, sin el color real', () => {
+    expect([...INDICES]).toEqual(['ndvi', 'evi', 'ndre', 'ndmi', 'savi', 'lai'])
+    for (const i of INDICES) expect(ESCALAS[i], i).toBeDefined()
+  })
+
+  it('el LAI se pinta en todo su rango, 0 a 3,5, y con su escala de 1.000', () => {
+    expect(escalaDe('lai').rango).toEqual([0, 3.5])
+    // La capa del LAI trae escala 1000: 3,5 por 1.000 es 3500, no 35000.
+    expect(rescaleDe(escalaDe('lai').rango, 1000)).toBe('0,3500')
+  })
+
+  it('SAVI tiene su escala de vegetación, y no la de reserva', () => {
+    expect(escalaDe('savi')).toMatchObject({ rango: [0, 0.7], paleta: 'rdylgn' })
   })
 })
