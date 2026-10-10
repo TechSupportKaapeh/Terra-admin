@@ -58,6 +58,15 @@ export const ESCALAS: Record<string, EscalaDeIndice> = {
   // sobre cero es húmedo. Es el único de los cuatro con un centro con sentido.
   ndmi: { que: 'humedad', rango: [-0.4, 0.4], paleta: 'rdbu', centro: 0 },
 
+  // M.9.3 (2026-10-09, worker `DECISIONS #81`). SAVI es el NDVI corregido por el suelo a la
+  // vista: sobre un cultivo corre un poco por debajo del NDVI, así que su rampa termina antes.
+  savi: { que: 'vegetación con suelo a la vista', rango: [0, 0.7], paleta: 'rdylgn' },
+
+  // El LAI **es una estimación** desde el EVI y satura en 3,5 (Boegh 2002): el rango es todo
+  // lo que puede valer. Secuencial, porque más hojas es más y no hay un centro. Su capa trae
+  // `escala: 1000` y no 10.000: `rescaleDe` la usa, así que no hace falta nada más acá.
+  lai: { que: 'área foliar estimada (m² de hoja por m²)', rango: [0, 3.5], paleta: 'ylgn' },
+
   // El color real (M.9.7f, worker `DECISIONS #77`). **No es un índice**: son tres bandas de
   // reflectancia (rojo, verde y azul) y TiTiler las pinta en color cuando recibe tres `bidx`,
   // así que **va sin paleta**. 0 a 0,3 es el rango de un campo a la vista: la reflectancia de
@@ -65,7 +74,17 @@ export const ESCALAS: Record<string, EscalaDeIndice> = {
   rgb: { que: 'color real', rango: [0, 0.3], paleta: '' },
 }
 
-/** El producto del color real en `layers`: la fila con las bandas 5 a 7 del COG. */
+/**
+ * Los índices que calcula el worker, en el orden de su receta (v4: worker `DECISIONS #81`).
+ * **La única lista del panel**: el mapa, la serie y el CSV la toman de acá. Antes estaba
+ * escrita tres veces, y sumar un índice obligaba a acordarse de las tres.
+ */
+export const INDICES = ['ndvi', 'evi', 'ndre', 'ndmi', 'savi', 'lai'] as const
+
+/**
+ * El producto del color real en `layers`: tres bandas del COG (5 a 7 hasta la receta v3, 7 a 9
+ * desde v4). La capa trae cuáles en `bandas`: no se fijan acá.
+ */
 export const COLOR_REAL = 'rgb'
 
 /** Si el producto se pinta en color real y no con una paleta. */

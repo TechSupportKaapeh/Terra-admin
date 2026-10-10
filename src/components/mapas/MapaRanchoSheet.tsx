@@ -8,15 +8,14 @@ import InterruptorCadencia from '@/components/series/InterruptorCadencia'
 import ExportarCsv from '@/components/series/ExportarCsv'
 import { useCapa, useCapasDeRancho, useMetricasRancho, useParcelas } from '@/lib/useEntidades'
 import { useMapToken } from '@/lib/useMapToken'
-import { COLOR_REAL, escalaDe, esColorReal } from '@/lib/indices'
+import { COLOR_REAL, escalaDe, esColorReal, INDICES } from '@/lib/indices'
 import {
   COBERTURA_MINIMA_MAPA, SALTO_DUDOSO, fechasDelMapa, tieneModo, ultimaBuena,
 } from '@/lib/mapaRancho'
 import { LIMITE_CAPAS_RANCHO, recortado } from '@/lib/capas'
 import type { Cadencia, Rancho } from '@/lib/api'
 
-/** Los cuatro índices de la receta, en su orden, y el color real si el rancho lo tiene. */
-const INDICES = ['ndvi', 'evi', 'ndre', 'ndmi']
+/** Los índices de la receta (`INDICES`, en su orden) y el color real si el rancho lo tiene. */
 const OPCION_COLOR_REAL = { value: COLOR_REAL, label: 'Color real', detalle: '· rojo, verde y azul' }
 const OPCIONES_INDICE = INDICES.map(i => ({
   value: i,

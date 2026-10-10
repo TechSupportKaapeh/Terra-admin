@@ -7,11 +7,10 @@ import SerieTemporal from '@/components/series/SerieTemporal'
 import ExportarCsv from '@/components/series/ExportarCsv'
 import type { Cadencia } from '@/lib/api'
 import { useSerie } from '@/lib/useEntidades'
-import { escalaDe } from '@/lib/indices'
+import { escalaDe, INDICES } from '@/lib/indices'
 import { recetasDe } from '@/lib/serie'
 
-/** Los cuatro índices de la receta. El orden es el de la receta, y no cambió en v2. */
-const INDICES = ['ndvi', 'evi', 'ndre', 'ndmi']
+/** Los índices de la receta (`INDICES`), en su orden: desde v4, seis. */
 
 const OPCIONES_INDICE = INDICES.map(i => ({
   value: i,
@@ -90,7 +89,7 @@ function Serie({ parcelaId, nombre, tenantId }: { parcelaId: string; nombre: str
             <InterruptorCadencia value={cadencia} onValueChange={setCadencia} />
           </div>
 
-          {/* Baja lo que se ve —la parcela, con esta cadencia—, con los cuatro índices. */}
+          {/* Baja lo que se ve —la parcela, con esta cadencia—, con todos los índices. */}
           <div className="ml-auto">
             <ExportarCsv alcance={{ tipo: 'parcela', id: parcelaId, nombre }} tenantId={tenantId} cadencia={cadencia} />
           </div>
